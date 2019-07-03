@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 wd = "/Users/nbaya/Documents/lab/smiles/"
 
-phen_dict = {#'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height'}#,
+phen_dict = {'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
              '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI'}#,
 #             'Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz':'T2D'} #this is the edited version of the original data, some unnecessary columns were removed
 #             '2443.gwas.imputed_v3.both_sexes.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
@@ -60,7 +60,7 @@ for filename, phen in phen_dict.items():
             fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
             if 'coding' in ss.columns.values:
                 ax.plot(ss[~ss.coding].raf, ss[~ss.coding].rbeta,'.',ms=2,c='#1f77b4') #plot noncoding variants
-                ax.plot(ss[ss.coding].raf, ss[ss.coding].rbeta, 'o',markerfacecolor='none', markeredgewidth=0.5,alpha=0.5) #plot coding variants
+                ax.plot(ss[ss.coding].raf, ss[ss.coding].rbeta, 'o',markerfacecolor='none', markeredgewidth=0.5) #plot coding variants
                 plt.legend(['non-coding','coding'])
             else:
                 ax.plot(ss.raf, ss.rbeta,'.',ms=2,alpha=1)
@@ -82,7 +82,7 @@ for filename, phen in phen_dict.items():
                 raf_c = ss[ss.coding]['raf'] #raf for coding variants
                 rbeta_c = ss[ss.coding]['rbeta'] #raf for coding variants
                 ax.plot(raf, 2*raf*(1-raf)*rbeta**2,'.',ms=2,c='#1f77b4')
-                ax.plot(raf_c, 2*raf_c*(1-raf_c)*rbeta_c**2, 'o',markerfacecolor='none', markeredgewidth=1,c='#1f77b4',alpha=0.5)
+                ax.plot(raf_c, 2*raf_c*(1-raf_c)*rbeta_c**2, 'o',markerfacecolor='none', markeredgewidth=0.5,c='#1f77b4')
                 plt.legend(['non-coding','coding'])
             else:
                 ax.plot(ss.raf, 2*ss.raf*(1-ss.raf)*ss.rbeta**2,'.',ms=2)
@@ -108,7 +108,7 @@ for filename, phen in phen_dict.items():
                     raf_c = ss[(ss.chr==str(ch))&(ss.coding)]['raf'] #raf for coding variants
                     rbeta_c = ss[(ss.chr==str(ch))&(ss.coding)]['rbeta'] #raf for coding variants
                     ax.plot(raf, 2*raf*(1-raf)*rbeta**2,'.',ms=2,c=colors[i%10])
-                    ax.plot(raf_c, 2*raf_c*(1-raf_c)*rbeta_c**2, 'o',markerfacecolor='none', markeredgewidth=1,c=colors[i%10],alpha=0.5)
+                    ax.plot(raf_c, 2*raf_c*(1-raf_c)*rbeta_c**2, 'o',markerfacecolor='none', markeredgewidth=0.5,c=colors[i%10],alpha=0.5)
                 else:
                     raf = ss[ss.chr==str(ch)]['raf']
                     rbeta = ss[ss.chr==str(ch)]['rbeta']
