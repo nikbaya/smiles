@@ -19,7 +19,9 @@ phen_dict = {#'50_irnt.gwas.imputed_v3.both_sexes.tsv.bgz':'Standing height',
 #             'Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz':'T2D'} #this is the edited version of the original data, some unnecessary columns were removed
 #             '2443.gwas.imputed_v3.both_sexes.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
 #        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
-        'EUR.IBD.gwas_info03_filtered.assoc.gz':'IBD'} #EUR IBD from transethnic ancestry meta-analysis
+#        'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
+#        'EUR.CD.gwas_info03_filtered.assoc.tsv.gz':'CD'}#, #EUR CD from transethnic ancestry meta-analysis
+        'EUR.UC.gwas_info03_filtered.assoc.tsv.gz':'UC'} #EUR UC from transethnic ancestry meta-analysis
 
 
 
@@ -56,10 +58,6 @@ for filename, phen in phen_dict.items():
             #effect size beta
             fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
             ax.plot(ss.raf, ss.rbeta,'.',ms=2,alpha=1)
-    #        if phen=='Standing height':
-    #            plt.ylim([0,0.35])
-    #        elif phen=='SCZ':
-    #            plt.ylim([0,2])
             plt.xlabel('Risk allele frequency')
             plt.ylabel('Estimated effect size')
             plt.title(f'AF vs. Effect Size\nphen: {phen}, n: {n}, pval_threshold: {pval_threshold}'+(f', maf>{maf}' if maf!=0 else ''))
@@ -70,8 +68,6 @@ for filename, phen in phen_dict.items():
             #variance explained
             fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))            
             ax.plot(ss.raf, 2*ss.raf*(1-ss.raf)*ss.rbeta**2,'.',ms=2)
-#            if phen=='Diabetes diagnosed':
-#                plt.ylim([0,0.0001])
             plt.xlabel('Risk allele frequency')
             plt.ylabel('Variance explained')
             plt.title(f'AF vs. Variance Explained\nphen: {phen}, n: {n}, pval_threshold: {pval_threshold}'+(f', maf>{maf}' if maf!=0 else ''))
@@ -87,8 +83,6 @@ for filename, phen in phen_dict.items():
                 raf = ss[ss.chr==str(ch)]['raf']
                 rbeta = ss[ss.chr==str(ch)]['rbeta']
                 ax.plot(raf, 2*raf*(1-raf)*rbeta**2,'.',ms=2)
-#            if phen=='Diabetes diagnosed':
-#                plt.ylim([0,0.0001])
             plt.xlabel('Risk allele frequency')
             plt.ylabel('Variance explained')
             plt.title(f'AF vs. Variance Explained, colored by chromosome\nphen: {phen}, n: {n}, pval_threshold: {pval_threshold}'+(f', maf>{maf}' if maf!=0 else ''))
