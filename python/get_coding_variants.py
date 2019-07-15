@@ -4,9 +4,11 @@
 Created on Wed Jul  3 10:59:21 2019
 
 get binary annotations for whether a variant is in a gene (i.e. coding variant)
-Uses Brandon Franco's code to read in gencode data
+Uses Brandon Franco's (or Liam Abbott's?) code to read in gencode data
 gencode data: 
+    
 ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_31/
+
 https://www.gencodegenes.org/human/release_30.html
 
 @author: nbaya
@@ -14,9 +16,9 @@ https://www.gencodegenes.org/human/release_30.html
 
 import hail as hl
 
-wd = '/Users/nbaya/Documents/lab/smiles/data/'
+wd_data = '/Users/nbaya/Documents/lab/smiles/data/'
 
-t = hl.import_table('/Users/nbaya/Downloads/gencode.v31lift37.annotation.gff3',no_header=True,impute=True, comment=('#'))
+t = hl.import_table(wd_data+'gencode.v31lift37.annotation.gff3.gz',no_header=True,impute=True, comment=('#'),force=True)
 #t = hl.import_table('/Users/nbaya/Downloads/gencode.v31lift37.annotation.gtf',no_header=True,impute=True, comment=('#'))
 
                                                                                                                     
@@ -34,19 +36,22 @@ t2 = t2.drop(t2.GFF_Columns, t2.f8, t2.f0, t2.f1, t2.f2, t2.f3, t2.f4, t2.f5, t2
 t2 = t2.key_by(t2.interval)
 
                                                                                                               
-
-#ss0 = hl.import_table(wd+'50_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',impute=True,force_bgz=True)
-ss0 = hl.import_table(wd+'21001_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',impute=True,force_bgz=True)
-#ss0 = hl.import_table(wd+'21001_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',impute=True,force_bgz=True)
-variant = ss0.variant.split(':')
-ss = ss0.filter(hl.is_valid_locus(variant[0], 
-                                  hl.int(variant[1]),
-                                  'GRCh37'))
-locus = ss.variant.split(':')
-ss = ss.annotate(locus = hl.parse_locus(locus[0]+':'+locus[1],reference_genome='GRCh37'))
+filename = '50_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
+filename = '21001_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
+filename = 'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz'
+ss0 = hl.import_table(wd_data+filename,impute=True,force=True,types={'chr':hl.tstr})
+if 'variant' in list(ss0.row): 
+    variant = ss0.variant.split(':')
+    ss = ss0.filter(hl.is_valid_locus(variant[0], 
+                                      hl.int(variant[1]),
+                                      'GRCh37'))
+    locus = ss.variant.split(':')
+    ss = ss.annotate(locus = hl.parse_locus(locus[0]+':'+locus[1],reference_genome='GRCh37'))
+elif 'chr' in list(ss0.row) and 'pos' in list(ss0.row):
+    ss = ss0.annotate(locus = hl.locus(contig=ss0.chr,pos=ss0.pos,reference_genome='GRCh37'))
 ss = ss.annotate(coding=hl.is_defined(t2[ss.locus]))
-
-ss.export(wd+'21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz')
+ss = ss.drop('locus')
+ss.export(wd_data+filename.split('.tsv')[0]+'.coding.tsv'+filename.split('.tsv')[1])
 
 
 
