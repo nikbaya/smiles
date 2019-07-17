@@ -34,28 +34,30 @@ scz.to_csv(wd+'data/'+'pgc.scz.full.2012-04.tsv.gz',compression='gzip',sep='\t',
 
 ## Clean up IBD data
 ibd = pd.read_csv(wd+'data/'+'EUR.IBD.gwas_info03_filtered.assoc.gz',compression='gzip',delim_whitespace=True)
-ibd = ibd.rename(columns={'FRQ_U_21770':'EAF','CHR':'chr','P':'pval'})
+n_cas = int([x for x in ibd.columns.values if 'FRQ_A' in x][0].split('_')[2])
+n_con = int([x for x in ibd.columns.values if 'FRQ_U' in x][0].split('_')[2])
+ibd = ibd.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval','BP':'pos'})
 ibd['beta'] = np.log10(ibd.OR)
-ibd['n'] = 12882+21770
-ibd = ibd[['chr','EAF','beta','pval','n']]
-ibd.to_csv(wd+'data/'+'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',compression='gzip',sep='\t')
+ibd['n'] = n_cas + n_con
+ibd = ibd[['chr','EAF','beta','pval','n','pos']]
+ibd.to_csv(wd+'data/'+'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',compression='gzip',sep='\t',index=False)
 
 ## Clean up CD (Crohn's disease) data
-cd = pd.read_csv(wd+'data/'+'EUR.CD.gwas_info03_filtered.assoc.gz',compression='gzip',delim_whitespace=True)
-n_cas = int([x for x in cd.columns.values if 'FRQ_A' in x][0].split('_')[2])
-n_con = int([x for x in cd.columns.values if 'FRQ_U' in x][0].split('_')[2])
-cd = cd.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval'})
-cd['beta'] = np.log10(cd.OR)
-cd['n'] = n_cas + n_con
-cd = cd[['chr','EAF','beta','pval','n']]
-cd.to_csv(wd+'data/'+'EUR.CD.gwas_info03_filtered.assoc.tsv.gz',compression='gzip',sep='\t')
+df = pd.read_csv(wd+'data/'+'EUR.CD.gwas_info03_filtered.assoc.gz',compression='gzip',delim_whitespace=True)
+n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
+n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
+df = df.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval','BP':'pos'})
+df['beta'] = np.log10(df.OR)
+df['n'] = n_cas + n_con
+df = df[['chr','EAF','beta','pval','n','pos']]
+df.to_csv(wd+'data/'+'EUR.CD.gwas_info03_filtered.assoc.tsv.gz',compression='gzip',sep='\t',index=False)
 
 ## Clean up UC (ulcerative colitis) data
-uc = pd.read_csv(wd+'data/'+'EUR.UC.gwas_info03_filtered.assoc.gz',compression='gzip',delim_whitespace=True)
-n_cas = int([x for x in uc.columns.values if 'FRQ_A' in x][0].split('_')[2])
-n_con = int([x for x in uc.columns.values if 'FRQ_U' in x][0].split('_')[2])
-uc = uc.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval'})
-uc['beta'] = np.log10(uc.OR)
-uc['n'] = n_cas + n_con
-uc = uc[['chr','EAF','beta','pval','n']]
-uc.to_csv(wd+'data/'+'EUR.UC.gwas_info03_filtered.assoc.tsv.gz',compression='gzip',sep='\t')
+df = pd.read_csv(wd+'data/'+'EUR.UC.gwas_info03_filtered.assoc.gz',compression='gzip',delim_whitespace=True)
+n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
+n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
+df = df.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval','BP':'pos'})
+df['beta'] = np.log10(df.OR)
+df['n'] = n_cas + n_con
+df = df[['chr','EAF','beta','pval','n','pos']]
+df.to_csv(wd+'data/'+'EUR.UC.gwas_info03_filtered.assoc.tsv.gz',compression='gzip',sep='\t',index=False)

@@ -38,7 +38,10 @@ t2 = t2.key_by(t2.interval)
                                                                                                               
 filename = '50_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
 filename = '21001_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
+filename = '2443.gwas.imputed_v3.both_sexes.tsv.bgz'
 filename = 'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz'
+filename = 'EUR.CD.gwas_info03_filtered.assoc.tsv.gz'
+filename = 'EUR.UC.gwas_info03_filtered.assoc.tsv.gz'
 ss0 = hl.import_table(wd_data+filename,impute=True,force=True,types={'chr':hl.tstr})
 if 'variant' in list(ss0.row): 
     variant = ss0.variant.split(':')
