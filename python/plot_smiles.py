@@ -14,21 +14,22 @@ import matplotlib.pyplot as plt
 
 wd = "/Users/nbaya/Documents/lab/smiles/"
 
-phen_dict = {'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
-             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
+phen_dict = {#'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
+             #'21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
 #             'Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz':'T2D'} #this is the edited version of the original data, some unnecessary columns were removed
 #             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
 #        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
-        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
-        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
-        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC'} #EUR UC from transethnic ancestry meta-analysis
+        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD'}#,#EUR IBD from transethnic ancestry meta-analysis
+#        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
+#        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC'} #EUR UC from transethnic ancestry meta-analysis
 
 highlight_coding = True
-ld_clumping = False
-ld_window = int(300e3)
+ld_clumping = True
+ld_window = int(100e3)
 savefig = True
-get_top_loci = True
+get_top_loci = False
 n_top_loci = 10
+
 
 for filename, phen in phen_dict.items():
     print(f'Starting phen {phen}, using file {filename}')
@@ -43,6 +44,29 @@ for filename, phen in phen_dict.items():
         ss0['pos'] = ss0.variant.str.split(':',n=2,expand=True).iloc[:,1]
     ss0['pos'] = ss0['pos'].astype(int)
         
+    if 'n_complete_samples' in ss0.columns.values:
+        print('renaming field n_complete_samples as n')
+        ss0 = ss0.rename(columns={'n_complete_samples':'n'})
+    n = int(ss0.n.mean())
+    if ss0.n.std() != 0:
+        print('WARNING: Number of samples varies across0 SNPs')
+    
+    if 'EAF' not in ss0.columns.values:
+        ss0['ref'] = ss0.variant.str.split(':',n=3,expand=True).iloc[:,2]
+        ss0.loc[ss0.minor_allele!=ss0.ref,'alt_af'] = ss0.loc[ss0.minor_allele!=ss0.ref,'minor_AF']
+        ss0.loc[ss0.minor_allele==ss0.ref,'alt_af'] = 1-ss0.loc[ss0.minor_allele==ss0.ref,'minor_AF']
+        ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'alt_af']
+        ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'alt_af']
+    else:
+        ss0 = ss0.rename(columns={'EAF':'raf'}) # where raf is "risk allele frequency"
+
+    ss0.loc[ss0.index,'rbeta'] = np.abs(ss0['beta']) #beta is transformed to risk (or trait-increasing) allele effect size
+    
+#    if ld_clumping:
+#        if f'ld_index_{ld_window}' not in ss0.columns.values:
+#            ss0[f'ld_index_{ld_window}'] = [f'{entry.chr}-{int(entry.pos/ld_window)}' for id,entry in ss0.iterrows()]
+    
+        
     for pval_threshold in [1e-5,5e-8,1e-8]:
         
         ss = ss0[ss0.pval < pval_threshold].reset_index()
@@ -56,29 +80,12 @@ for filename, phen in phen_dict.items():
                 ch, pos = ss_tmp[ss_tmp.pval==ss_tmp.pval.min()][['chr','pos']].values[0]
                 ss_w_top_locus = ss_tmp[(ss_tmp['chr']==ch)&(ss_tmp['pos']>=pos-ld_window/2)&(ss_tmp['pos']<=pos+ld_window/2)].copy() #extract rows around most significant hit
                 ss_w_top_locus['loci_rank'] = i
-                ss_keep.append(ss_w_top_locus)
+                ss_keep = ss_keep.append(ss_w_top_locus)
                 ss_tmp = ss_tmp[~((ss_tmp['chr']==ch)&(ss_tmp['pos']>=pos-ld_window/2)&(ss_tmp['pos']<=pos+ld_window/2))].copy() #keep rows not around most significant hit
                 i += 1
             ss = ss_keep
             ss = ss.sort_values(by='index') #unnecessary step, but restores the order of variants
         
-        if 'n_complete_samples' in ss.columns.values:
-            print('renaming field n_complete_samples as n')
-            ss = ss.rename(columns={'n_complete_samples':'n'})
-        n = int(ss.n.mean())
-        if ss.n.std() != 0:
-            print('WARNING: Number of samples varies across SNPs')
-        
-        ss.loc[ss.index,'rbeta'] = np.abs(ss['beta']) #beta is transformed to risk (or trait-increasing) allele effect size
-        
-        if 'EAF' not in ss.columns.values:
-            ss['ref'] = ss.variant.str.split(':',n=3,expand=True).iloc[:,2]
-            ss.loc[ss.minor_allele!=ss.ref,'alt_af'] = ss.loc[ss.minor_allele!=ss.ref,'minor_AF']
-            ss.loc[ss.minor_allele==ss.ref,'alt_af'] = 1-ss.loc[ss.minor_allele==ss.ref,'minor_AF']
-            ss.loc[ss.beta>0,'raf'] = ss.loc[ss.beta>0,'alt_af']
-            ss.loc[ss.beta<0,'raf'] = 1-ss.loc[ss.beta<0,'alt_af']
-        else:
-            ss = ss.rename(columns={'EAF':'raf'}) # where raf is "risk allele frequency"
             
         for maf in [0, 0.01]:
             if maf != 0:
@@ -95,9 +102,9 @@ for filename, phen in phen_dict.items():
                         ax.plot(ss[(~ss.coding)&(ss.loci_rank==loci_i)].raf, ss[~ss.coding&(ss.loci_rank==loci_i)].rbeta,'.',ms=4,c=colors[loci_i%10]) #plot noncoding variants
                         ax.plot(ss[ss.coding&(ss.loci_rank==loci_i)].raf, ss[ss.coding&(ss.loci_rank==loci_i)].rbeta, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[loci_i%10]) #plot coding variants
                 else:
-                    ax.plot(ss[~ss.coding].raf, ss[~ss.coding].rbeta,'.',ms=2,c='#1f77b4') #plot noncoding variants
-                    ax.plot(ss[ss.coding].raf, ss[ss.coding].rbeta, 'o',markerfacecolor='none', markeredgewidth=0.75) #plot coding variants
-                    plt.legend(['non-coding','coding'])
+                    ax.plot(ss[~ss.coding].raf, ss[~ss.coding].rbeta,'.',ms=4,c='#1f77b4') #plot noncoding variants
+                    ax.plot(ss[ss.coding].raf, ss[ss.coding].rbeta, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75) #plot coding variants
+                    plt.legend(['non-coding','coding'], loc=1)
             else:
                 ax.plot(ss.raf, ss.rbeta,'.',ms=2,alpha=1)
             plt.xlabel('Risk allele frequency')
@@ -105,7 +112,6 @@ for filename, phen in phen_dict.items():
             plt.title(f'AF vs. Effect Size\nphen: {phen}, n: {n}, pval threshold: {pval_threshold}'
                       +(f', maf>{maf}' if maf!=0 else '')+(f', ld block: {int(ld_window/1000)}kb' if ld_clumping else '')
                       +(f', loci window: {int(ld_window/1000)}kb' if get_top_loci else ''))
-            fig=plt.gcf()
             suffix = ''
             if 'coding' in ss.columns.values  and highlight_coding:
                 suffix = '.highlightcoding'
@@ -126,9 +132,9 @@ for filename, phen in phen_dict.items():
                         ax.plot(ss[~ss.coding&(ss.loci_rank==loci_i)].raf, ss[~ss.coding&(ss.loci_rank==loci_i)].var_exp,'.',ms=4,c=colors[loci_i%10]) #plot noncoding variants
                         ax.plot(ss[ss.coding&(ss.loci_rank==loci_i)].raf,  ss[ss.coding&(ss.loci_rank==loci_i)].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[loci_i%10]) #plot coding variants
                 else:
-                    ax.plot(ss[~ss.coding].raf, ss[~ss.coding].var_exp,'.',ms=2,c='#1f77b4')
-                    ax.plot(ss[ss.coding].raf, ss[ss.coding].var_exp, 'o',markerfacecolor='none', markeredgewidth=0.75,c='#1f77b4')
-                    plt.legend(['non-coding','coding'])
+                    ax.plot(ss[~ss.coding].raf, ss[~ss.coding].var_exp,'.',ms=4,c='#1f77b4')
+                    ax.plot(ss[ss.coding].raf, ss[ss.coding].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c='#1f77b4')
+                    plt.legend(['non-coding','coding'],loc=1)
             else:
                 ax.plot(ss.raf, 2*ss.raf*(1-ss.raf)*ss.rbeta**2,'.',ms=2)
             plt.xlabel('Risk allele frequency')
@@ -153,8 +159,8 @@ for filename, phen in phen_dict.items():
                 ss['var_exp'] = 2*ss.raf*(1-ss.raf)*ss.rbeta**2
                 for i, ch in enumerate([*range(1,23)]+['X']):
                     if 'coding' in ss.columns.values and highlight_coding:
-                        ax.plot(ss[(ss.chr==str(ch))&(~ss.coding)].raf, ss[(ss.chr==str(ch))&(~ss.coding)].var_exp,'.',ms=2,c=colors[i%10])
-                        ax.plot(ss[(ss.chr==str(ch))&(ss.coding)].raf, ss[(ss.chr==str(ch))&(ss.coding)].var_exp, 'o',markerfacecolor='none', markeredgewidth=0.75,c=colors[i%10])
+                        ax.plot(ss[(ss.chr==str(ch))&(~ss.coding)].raf, ss[(ss.chr==str(ch))&(~ss.coding)].var_exp,'.',ms=4,c=colors[i%10])
+                        ax.plot(ss[(ss.chr==str(ch))&(ss.coding)].raf, ss[(ss.chr==str(ch))&(ss.coding)].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[i%10])
                     else:
                         raf = ss[ss.chr==str(ch)]['raf']
                         rbeta = ss[ss.chr==str(ch)]['rbeta']
