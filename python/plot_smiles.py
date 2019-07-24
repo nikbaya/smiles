@@ -15,19 +15,19 @@ import matplotlib.pyplot as plt
 wd = "/Users/nbaya/Documents/lab/smiles/"
 
 phen_dict = {#'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
-             #'21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
+             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI'}#,
 #             'Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz':'T2D'} #this is the edited version of the original data, some unnecessary columns were removed
 #             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
 #        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
-        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD'}#,#EUR IBD from transethnic ancestry meta-analysis
+#        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD'}#,#EUR IBD from transethnic ancestry meta-analysis
 #        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
 #        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC'} #EUR UC from transethnic ancestry meta-analysis
 
 highlight_coding = True
-ld_clumping = True
-ld_window = int(100e3)
-savefig = True
-get_top_loci = False
+ld_clumping = False
+ld_window = int(300e3)
+savefig = False
+get_top_loci = True
 n_top_loci = 10
 
 
@@ -71,7 +71,7 @@ for filename, phen in phen_dict.items():
         
         ss = ss0[ss0.pval < pval_threshold].reset_index()
         
-        if get_top_loci and not ld_clumping:
+        if get_top_loci:
             ss_ls = [None]*n_top_loci #list of dataframes with top loci
             ss_tmp = ss.copy() #dataframe from which top loci will be removed
             ss_keep = ss[[False]*len(ss)]
@@ -85,7 +85,7 @@ for filename, phen in phen_dict.items():
                 i += 1
             ss = ss_keep
             ss = ss.sort_values(by='index') #unnecessary step, but restores the order of variants
-        
+
             
         for maf in [0, 0.01]:
             if maf != 0:
@@ -98,7 +98,7 @@ for filename, phen in phen_dict.items():
             fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
             if 'coding' in ss.columns.values and highlight_coding:
                 if get_top_loci:
-                    for loci_i in range(n_top_loci):
+                    for loci_i in range(1):
                         ax.plot(ss[(~ss.coding)&(ss.loci_rank==loci_i)].raf, ss[~ss.coding&(ss.loci_rank==loci_i)].rbeta,'.',ms=4,c=colors[loci_i%10]) #plot noncoding variants
                         ax.plot(ss[ss.coding&(ss.loci_rank==loci_i)].raf, ss[ss.coding&(ss.loci_rank==loci_i)].rbeta, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[loci_i%10]) #plot coding variants
                 else:
