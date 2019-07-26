@@ -121,9 +121,9 @@ except:
     ss0 = ss0.key_by(ss0.locus,ss0.alleles)
     
     ss1 = ss0.annotate(ref = ss0.alleles[0])
-    ss1 = ss1.annotate(alt_af = (ss1.minor_AF*(ss1.minor_allele!=ss1.ref)+
+    ss1 = ss1.annotate(alt_AF = (ss1.minor_AF*(ss1.minor_allele!=ss1.ref)+
                                  (1-ss1.minor_AF)*(ss1.minor_allele==ss1.ref)))
-    ss1 = ss1.annotate(real_raf = ss1.alt_af*(ss1.real_betahat>0)+(1-ss1.alt_af)*(ss1.real_betahat<0), #risk allele frequency
+    ss1 = ss1.annotate(real_raf = ss1.alt_AF*(ss1.real_betahat>0)+(1-ss1.alt_AF)*(ss1.real_betahat<0), #risk allele frequency
                        real_rbeta = hl.abs(ss1.real_betahat)) #beta of risk allele
     ss1 = ss1.annotate(real_varexp = 2*ss1.real_raf*(1-ss1.real_raf)*ss1.real_rbeta**2) 
     
@@ -132,6 +132,9 @@ except:
                                             real_rbeta = ss1[mt_top_loci.locus,mt_top_loci.alleles].real_rbeta,
                                             real_raf = ss1[mt_top_loci.locus,mt_top_loci.alleles].real_raf,
                                             real_pval = ss1[mt_top_loci.locus,mt_top_loci.alleles].real_pval,
+                                            minor_AF = ss1[mt_top_loci.locus,mt_top_loci.alleles].minor_AF,
+                                            minor_allele = ss1[mt_top_loci.locus,mt_top_loci.alleles].minor_allele,
+                                            alt_af = ss1[mt_top_loci.locus,mt_top_loci.alleles].alt_AF,
                                             coding = ss1[mt_top_loci.locus,mt_top_loci.alleles].coding,
                                             real_varexp = ss1[mt_top_loci.locus,mt_top_loci.alleles].real_varexp)
     mt_all_loci = mt_all_loci.filter_rows(hl.is_defined(ss1[mt_all_loci.locus,mt_all_loci.alleles]))
@@ -177,22 +180,55 @@ except:
 #sim_all_loci.checkpoint(wd+phen+f'.sim_all_loci.pval{pval_threshold}{f".maf_{maf}" if maf!=0 else ""}.mt',overwrite=True)
 
 
-print('\n###################')
-print(f'Starting GWAS for phenotype {phen}')
-print('###################\n')
 
-cov_list = ['isFemale','age','age_squared','age_isFemale',
-                    'age_squared_isFemale']+['PC{:}'.format(i) for i in range(1, 21)]
-cov_list = list(map(lambda x: sim_all_loci[x] if type(x) is str else x,cov_list))
-cov_list += [1]
+ss0 = hl.import_table(wd+f'data/{phen}.gwas.imputed_v3.both_sexes.coding.tsv.bgz',impute=True)
+ss0 = ss0.annotate(variant = hl.parse_variant(ss0.variant,reference_genome='GRCh37'))
+ss0 = ss0.rename({'beta':'real_betahat','se':'real_se','tstat':'real_tstat','pval':'real_pval'})
+ss0 = ss0.annotate(locus = ss0.variant.locus,
+                alleles = ss0.variant.alleles)
+ss0 = ss0.key_by(ss0.locus,ss0.alleles)
 
-gwas_all_loci = hl.linear_regression_rows(y=sim_all_loci.y,
-                                           x=sim_all_loci.dosage,
-                                           covariates=cov_list,
-                                           pass_through=['sim_beta', 'real_rbeta',
-                                                         'real_raf','real_pval',
-                                                         'coding','real_varexp'])
-gwas_all_loci.write(wd+phen+f'.gwas.top{n_top_loci}loci.ldwindow{int(ld_window/1e3)}kb.ht',overwrite=True)
+ss1 = ss0.annotate(ref = ss0.alleles[0])
+ss1 = ss1.annotate(alt_AF = (ss1.minor_AF*(ss1.minor_allele!=ss1.ref)+
+                             (1-ss1.minor_AF)*(ss1.minor_allele==ss1.ref)))
+ss1 = ss1.annotate(real_raf = ss1.alt_AF*(ss1.real_betahat>0)+(1-ss1.alt_AF)*(ss1.real_betahat<0), #risk allele frequency
+                   real_rbeta = hl.abs(ss1.real_betahat)) #beta of risk allele
+ss1 = ss1.annotate(real_varexp = 2*ss1.real_raf*(1-ss1.real_raf)*ss1.real_rbeta**2) 
+
+#sim_all_loci = sim_all_loci.annotate_rows(minor_AF = ss1[sim_all_loci.locus,sim_all_loci.alleles].minor_AF,
+#                                          minor_allele = ss1[sim_all_loci.locus,sim_all_loci.alleles].minor_allele,
+#                                          alt_AF = ss1[sim_all_loci.locus,sim_all_loci.alleles].alt_AF)
+#
+#
+#print('\n###################')
+#print(f'Starting GWAS for phenotype {phen}')
+#print('###################\n')
+#
+#cov_list = ['isFemale','age','age_squared','age_isFemale',
+#                    'age_squared_isFemale']+['PC{:}'.format(i) for i in range(1, 21)]
+#cov_list = list(map(lambda x: sim_all_loci[x] if type(x) is str else x,cov_list))
+#cov_list += [1]
+#
+#gwas_all_loci = hl.linear_regression_rows(y=sim_all_loci.y,
+#                                           x=sim_all_loci.dosage,
+#                                           covariates=cov_list,
+#                                           pass_through=['sim_beta', 'real_rbeta',
+#                                                         'real_raf','real_pval',
+#                                                         'coding','real_varexp',
+#                                                         'minor_AF','minor_allele',
+#                                                         'alt_AF'])
+#gwas_all_loci.write(wd+phen+f'.gwas.top{n_top_loci}loci.ldwindow{int(ld_window/1e3)}kb.ht',overwrite=True)
 
 #min_idx = np.argmax(sim_all_loci.beta.collect())
 #ld = hl.row_correlation(mt_locus.dosage).to_numpy()[min_idx]
+
+gwas = hl.read_table(wd+phen+f'.gwas.top{n_top_loci}loci.ldwindow{int(ld_window/1e3)}kb.ht')
+gwas = gwas.annotate(minor_AF = ss1[gwas.locus,gwas.alleles].minor_AF,
+                     minor_allele = ss1[gwas.locus,gwas.alleles].minor_allele,
+                     alt_AF = ss1[gwas.locus,gwas.alleles].alt_AF)
+
+gwas.write(wd+phen+f'.gwas.top{n_top_loci}loci.ldwindow{int(ld_window/1e3)}kb.v2.ht')
+
+#mt = hl.read_matrix_table(wd+phen+f'.simulation.top{n_top_loci}loci.ldwindow{int(ld_window/1e3)}kb.mt')
+#locus_ld = hl.row_correlation(mt.dosage)
+#locus_ld.write(wd+phen+f'.r.top{n_top_loci}loci.ldwindow{int(ld_window/1e3)}kb.bm')
