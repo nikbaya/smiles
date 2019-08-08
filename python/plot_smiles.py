@@ -19,14 +19,15 @@ phen_dict = {#'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing heig
 #             'Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz':'T2D'} #this is the edited version of the original data, some unnecessary columns were removed
 #             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
 #        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
-        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
-        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
-        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC'} #EUR UC from transethnic ancestry meta-analysis
+#        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
+#        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
+#        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
 #        'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ'} #PGC data for SCZ
+        '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
 
-highlight_coding = False
+highlight_coding = True
 ld_clumping = False  #only show the top hit (variant with lowest p-value) in a window of size {ld_window}
-ld_window = int(100e3) #default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
+ld_window = int(300e3) #default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
 savefig = True
 get_top_loci = False # only show top {n_top_loci} in the plot, and color by loci
 n_top_loci = 10
@@ -46,13 +47,13 @@ for filename, phen in phen_dict.items():
     ss0['pos'] = ss0['pos'].astype(int)
         
     if 'n_complete_samples' in ss0.columns.values:
-        print('renaming field n_complete_samples as n')
+        print('renaming field "n_complete_samples" to "n"')
         ss0 = ss0.rename(columns={'n_complete_samples':'n'})
     n = int(ss0.n.mean())
     if ss0.n.std() != 0:
         print('WARNING: Number of samples varies across SNPs')
-    
-    if 'EAF' not in ss0.columns.values and all(x in ss0.columns.values for x in ['ref','minor_AF']):
+        
+    if 'EAF' not in ss0.columns.values and all(x in ss0.columns.values for x in ['variant','minor_AF']):
         ss0['ref'] = ss0.variant.str.split(':',n=3,expand=True).iloc[:,2]
         ss0.loc[ss0.minor_allele!=ss0.ref,'alt_af'] = ss0.loc[ss0.minor_allele!=ss0.ref,'minor_AF']
         ss0.loc[ss0.minor_allele==ss0.ref,'alt_af'] = 1-ss0.loc[ss0.minor_allele==ss0.ref,'minor_AF']
@@ -67,6 +68,9 @@ for filename, phen in phen_dict.items():
 
     ss0.loc[ss0.index,'rbeta'] = np.abs(ss0['beta']) #beta is transformed to risk (or trait-increasing) allele effect size
     
+#    if 'low_confidence_variant' in ss0.columns.values:
+#        ss0 = ss0[~ss0.low_confidence_variant]
+#    
     if ld_clumping and not get_top_loci:
         if f'ld_index_{ld_window}' not in ss0.columns.values:
             ss0[f'ld_index_{ld_window}'] = [f'{entry.chr}-{int(entry.pos/ld_window)}' for id,entry in ss0.iterrows()]

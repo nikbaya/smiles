@@ -23,7 +23,7 @@ t = hl.import_table(wd_data+'gencode.v31lift37.annotation.gff3.gz',no_header=Tru
 
                                                                                                                     
 t2 = t.annotate(GFF_Columns = t.f8.split(";").map(lambda x: x.split("=")))
-t2 = t2.filter(t2.f2 == "CDS") # coding sequence, not gene
+t2 = t2.filter(t2.f2 == "CDS") # only want coding sequences, not entire genes
 t2 = t2.filter(hl.is_valid_locus(t2.f0[3:], t2.f3, 'GRCh37'))
 t2 = t2.filter(hl.is_valid_locus(t2.f0[3:], t2.f4, 'GRCh37'))
 t2 = t2.annotate(interval=hl.interval(hl.locus(t2.f0[3:], t2.f3, 'GRCh37'), hl.locus(t2.f0[3:], t2.f4, 'GRCh37')))
@@ -42,6 +42,8 @@ filename = '2443.gwas.imputed_v3.both_sexes.tsv.bgz'
 filename = 'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz'
 filename = 'EUR.CD.gwas_info03_filtered.assoc.tsv.gz'
 filename = 'EUR.UC.gwas_info03_filtered.assoc.tsv.gz'
+filename = 'daner_PGC_SCZ43_mds9.tsv.gz'
+filename = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
 ss0 = hl.import_table(wd_data+filename,impute=True,force=True,types={'chr':hl.tstr})
 if 'variant' in list(ss0.row): 
     variant = ss0.variant.split(':')
