@@ -43,7 +43,9 @@ filename = 'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz'
 filename = 'EUR.CD.gwas_info03_filtered.assoc.tsv.gz'
 filename = 'EUR.UC.gwas_info03_filtered.assoc.tsv.gz'
 filename = 'daner_PGC_SCZ43_mds9.tsv.gz'
-filename = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
+filename = 'Mahajan.NatGenet2018b.T2D.European.tsv.gz'
+filename = 'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz'
+#filename = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
 ss0 = hl.import_table(wd_data+filename,impute=True,force=True,types={'chr':hl.tstr})
 if 'variant' in list(ss0.row): 
     variant = ss0.variant.split(':')
