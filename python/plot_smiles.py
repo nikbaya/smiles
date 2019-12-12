@@ -12,11 +12,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-wd = "/Users/nbaya/Documents/lab/smiles/"
+smiles_wd = "/Users/nbaya/Documents/lab/smiles/"
 
-phen_dict = {#'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height'}#,
-#             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI'}#,
-             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
+phen_dict = {#'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height'},
+             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI'}#,
+#             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
 #             'Mahajan.NatGenet2018b.T2D.European.coding.tsv.gz':'T2D', #this is the edited version of the original data, some unnecessary columns were removed
 #             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj'} #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
 #             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
@@ -31,7 +31,7 @@ highlight_coding = True
 ld_clumping = True #only show the top hit (variant with lowest p-value) in a window of size {ld_window}
 get_top_loci = False # only show top {n_top_loci} in the plot, and color by loci
 n_top_loci = 10
-ld_window = int(300e3) if get_top_loci else int(1000e3) #default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
+ld_window = int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
 block_mhc = True
 savefig = True
 
@@ -46,7 +46,7 @@ for filename, phen in phen_dict.items():
         print(f'LD window: {ld_window} ({ld_window/1e6}mb, {ld_window/1e3}kb)')
     
     
-    ss0 = pd.read_csv(wd+'data/'+filename, sep='\t',compression='gzip')
+    ss0 = pd.read_csv(smiles_wd+'data/'+filename, sep='\t',compression='gzip')
     
     if 'chr' not in ss0.columns.values:
         ss0['chr'] = ss0.variant.str.split(':',n=1,expand=True).iloc[:,0]
@@ -87,7 +87,7 @@ for filename, phen in phen_dict.items():
 #        ss0 = ss0.loc[ss0.groupby(f'ld_index_{ld_window}')['pval'].idxmin()]
     
     
-    for pval_threshold in [1e-5,5e-8,1e-8]:
+    for pval_threshold in [5e-8]:#[1e-5,5e-8,1e-8]:
         
         ss = ss0[ss0.pval < pval_threshold].reset_index()
         
@@ -108,7 +108,7 @@ for filename, phen in phen_dict.items():
             print(f'Post-filter # of variants (LD window={ld_window}): {ss.shape[0]}')
 
         if block_mhc: #combine all variants in MHC
-            genes = pd.read_csv(wd+'data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
+            genes = pd.read_csv(smiles_wd+'data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
             mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
             start = min(mhc_region.start)
             stop = max(mhc_region.stop)
@@ -172,7 +172,7 @@ for filename, phen in phen_dict.items():
             if block_mhc:
                 suffix += f'.block_mhc'
             if savefig:
-                fig.savefig(wd+f'smiles/plots/{file_prefix}.raf_effectsize{suffix}.png',dpi=600)
+                fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_effectsize{suffix}.png',dpi=600)
             plt.close()
                 
             #variance explained
@@ -205,7 +205,7 @@ for filename, phen in phen_dict.items():
             if block_mhc:
                 suffix += f'.block_mhc'
             if savefig:
-                fig.savefig(wd+f'smiles/plots/{file_prefix}.raf_varianceexplained{suffix}.png',dpi=600)
+                fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_varianceexplained{suffix}.png',dpi=600)
             plt.close()
     
             #variance explained, colored by chromosome
@@ -233,5 +233,5 @@ for filename, phen in phen_dict.items():
                 if block_mhc:
                     suffix += f'.block_mhc'
                 if savefig:
-                    fig.savefig(wd+f'smiles/plots/{file_prefix}.raf_varianceexplained.coloredbychr{suffix}.png',dpi=600)
+                    fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_varianceexplained.coloredbychr{suffix}.png',dpi=600)
                 plt.close()
