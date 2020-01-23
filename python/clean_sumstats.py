@@ -44,7 +44,7 @@ scz = scz.rename(columns={'hg18chr': 'chr', 'or': 'beta'})
 scz['n_complete_samples'] = 150064
 scz = scz[scz.CEUaf != '.']  # filter out SNPs with missing CEUaf
 # convert OR to correct scale for effect size
-scz['beta'] = np.log10(scz['beta'])ƒ
+scz['beta'] = np.log10(scz['beta'])
 scz.loc[scz.beta > 0, 'EAF'] = scz.loc[scz.beta > 0, 'CEUaf'].astype(float)
 scz.loc[scz.beta < 0, 'EAF'] = 1 - scz.loc[scz.beta < 0, 'CEUaf'].astype(float)
 scz = scz[['chr', 'EAF', 'beta', 'pval', 'n_complete_samples']]
@@ -95,12 +95,12 @@ df = pd.read_csv(wd_data + 'daner_PGC_SCZ43_mds9.gz.hq2.gz',
                  compression='gzip', delim_whitespace=True)
 n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
 n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
-#df = df.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval','BP':'pos'})
+df = df.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval','BP':'pos'})
 # df['beta'] = -np.log10(df.OR) # REVERSE SIGN OF ODDS RATIO because daner
 # files use odds ratios that are in reference to A1, meaning: A1*OR = A2
 df['beta'] = np.log10(df.OR)
 df['n'] = n_cas + n_con
-df = df[['chr', 'EAF', 'beta', 'pval', 'n', 'pos']]
+df = df[['chr', 'A1','A2','EAF','beta', 'pval', 'n', 'pos']]
 df.to_csv(wd_data + 'daner_PGC_SCZ43_mds9.tsv.gz',
           compression='gzip', sep='\t', index=False)
 

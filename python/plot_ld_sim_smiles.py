@@ -17,10 +17,10 @@ smiles_wd = '/Users/nbaya/Documents/lab/smiles/'
 phen_dict = {'50_irnt':'Standing height',
              '21001_irnt':'BMI'}
 
-phen = '50_irnt'
-n_top_loci = 20
+phen = 'scz.daner' #'50_irnt'
+n_top_loci = 10
 ld_window = 300e3 #1e6
-block_mhc=True
+block_mhc=False
 random_betas = False
 
 ## Prepare data
@@ -28,8 +28,10 @@ df = pd.read_csv(smiles_wd+'data/'+phen+f'.gwas.corr.top{n_top_loci}loci.ldwindo
                  compression='gzip',
                  sep='\t')
 
-df.loc[df.beta>0,'sim_raf'] = df.loc[df.beta>0,'alt_af']
-df.loc[df.beta<0,'sim_raf'] = 1-df.loc[df.beta<0,'alt_af']
+
+df['sim_raf'] = df.EAF
+#df.loc[df.beta>0,'sim_raf'] = df.loc[df.beta>0,'alt_af']
+#df.loc[df.beta<0,'sim_raf'] = 1-df.loc[df.beta<0,'alt_af']
 df['sim_rbeta'] = abs(df.beta)
 
 if 'chr' not in df.columns.values or 'pos' not in df.columns.values:
@@ -37,7 +39,8 @@ if 'chr' not in df.columns.values or 'pos' not in df.columns.values:
     df['pos'] = df.locus.str.split(':',n=2,expand=True).iloc[:,1].astype(int)
     
 if 'sim_varexp' not in df.columns.values:
-    df['sim_varexp'] = 2*df['minor_AF']*(1-df['minor_AF'])*df.beta**2
+    df['sim_varexp'] = 2*df['EAF']*(1-df['EAF'])*df.beta**2
+#    df['sim_varexp'] = 2*df['minor_AF']*(1-df['minor_AF'])*df.beta**2
 
 # get locus idx of sentinel variants
 if 'locus_idx' not in df.columns.values:
@@ -78,35 +81,58 @@ r2_threshold_ls = [0.5]#[0,0.3,0.6]
 
 #prop_raf_gt_sentinel_ls = [None]*len(r2_threshold_ls)
 
+
 for idx, r2_threshold in enumerate(r2_threshold_ls):
     
-    for locus_idx in range(1,5):
+    phen_factor_constant = 1 #(df.loc[df.locus_idx==0][f'real_rbeta']/df.loc[df.locus_idx==0][f'sim_rbeta']).values[0]
+    for locus_idx in range(5):
         df_locus = df[~df[f'r_locus{locus_idx}'].isna()]
         sentinel_chr, sentinel_pos = df_locus[df_locus.locus_idx==locus_idx][['chr','pos']].values.flatten()
         df_locus[f'r2_locus{locus_idx}']  = df_locus[f'r_locus{locus_idx}']**2
         df_locus = df_locus.loc[df_locus[f'r2_locus{locus_idx}']>r2_threshold] # only keep the variants with r2 to the sentinel greater than r2_threshold
         df_locus = df_locus.loc[~(df_locus.locus_idx==locus_idx)]
         
-        for gwas in ['real','sim']:
-            fig,ax=plt.subplots(figsize=(6,4))
-            ax.scatter(x=df_locus[f'{gwas}_raf'], y=df_locus[f'{gwas}_rbeta'],s=50,c=df_locus[f'r2_locus{locus_idx}'],
-                       marker='.',cmap='viridis',vmin=r2_threshold,vmax=1)
-            ax.plot(df.loc[df.locus_idx==locus_idx][f'{gwas}_raf'],df.loc[df.locus_idx==locus_idx][f'{gwas}_rbeta'],'rx',ms=10)
-            plt.xlim([0,1])
-            plt.ylim([0.95*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_rbeta','sim_rbeta']].min().min(),
-                      1.05*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_rbeta','sim_rbeta']].max().max()])
-            plt.title(f'Risk AF vs. Effect Size ({gwas}) \nlocus {locus_idx+1}: {sentinel_chr}:{sentinel_pos} , r2>{r2_threshold}')
-                    
+        fig, ax =plt.subplots(nrows=2,ncols=1,sharey=True, sharex=True,figsize=(6,6))
         
-        for gwas in ['real','sim']:
-            fig,ax=plt.subplots(figsize=(6,4))
-            ax.scatter(x=df_locus[f'{gwas}_raf'], y=df_locus[f'{gwas}_varexp'],s=50,c=df_locus[f'r2_locus{locus_idx}'],
+        for gwas_idx, gwas in enumerate(['sim']):
+            phen_factor = phen_factor_constant if gwas=='sim' else 1
+            ax[gwas_idx].scatter(x=df_locus[f'{gwas}_raf'], y=phen_factor*df_locus[f'{gwas}_rbeta'],s=50,c='k',#df_locus[f'r2_locus{locus_idx}'],
                        marker='.',cmap='viridis',vmin=r2_threshold,vmax=1)
-            ax.plot(df.loc[df.locus_idx==locus_idx][f'{gwas}_raf'],df.loc[df.locus_idx==locus_idx][f'{gwas}_varexp'],'rx',ms=10)
-            plt.xlim([0,1])
-            plt.ylim([0.95*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_varexp','sim_varexp']].min().min(),
-                      1.05*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_varexp','sim_varexp']].max().max()])
-            plt.title(f'Risk AF vs. Variance Explained ({gwas}) \nlocus {locus_idx+1}: {sentinel_chr}:{sentinel_pos} , r2>{r2_threshold}')
+            ax[gwas_idx].plot(df.loc[df.locus_idx==locus_idx][f'{gwas}_raf'],phen_factor*df.loc[df.locus_idx==locus_idx][f'{gwas}_rbeta'],'kx',ms=10)
+#            ax[gwas_idx].set_ylim([0.95*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][[f'{gwas}_rbeta']].min()[0],
+#                      1.05*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][[f'{gwas}_rbeta']].max()[0]])
+#            ax[gwas_idx].set_ylim([0.95*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_rbeta','sim_rbeta']].min().min(),
+#                                  1.05*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_rbeta','sim_rbeta']].max().max()])
+            ax[gwas_idx].set_ylim([0,1.1*max([df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_rbeta']].max()[0],
+              phen_factor_constant*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['sim_rbeta']].max()[0]])])
+            ax[gwas_idx].set_xlim([0,1])
+            ax[gwas_idx].set_title(gwas)
+            ax[gwas_idx].set_ylabel('Effect size')    
+#        plt.title(f'Risk AF vs. Effect Size ({gwas}) \nlocus {locus_idx+1}: {sentinel_chr}:{sentinel_pos} , r2>{r2_threshold}')
+        plt.suptitle(f'Risk AF vs. Effect Size (locus {locus_idx+1}, {sentinel_chr}:{sentinel_pos})')
+        plt.xlabel('Risk allele frequency')
+        fig.subplots_adjust(left=0.2)
+#        plt.savefig(smiles_wd+'smiles/plots/'+phen+f'.raf_rbeta.r2_{r2_threshold}.locusidx_{locus_idx}.png',dpi=600)
+
+                    
+        fig, ax =plt.subplots(nrows=2,ncols=1,sharey=False, sharex=True,figsize=(6,6))
+        for gwas_idx, gwas in enumerate(['real','sim']):
+            ax[gwas_idx].scatter(x=df_locus[f'{gwas}_raf'], y=df_locus[f'{gwas}_varexp'],s=50,c='k',#df_locus[f'r2_locus{locus_idx}'],
+                       marker='.',cmap='viridis',vmin=r2_threshold,vmax=1)
+            ax[gwas_idx].plot(df.loc[df.locus_idx==locus_idx][f'{gwas}_raf'],df.loc[df.locus_idx==locus_idx][f'{gwas}_varexp'],'kx',ms=10)
+            ax[gwas_idx].set_xlim([0,1])
+#            ax[gwas_idx].set_ylim([0.95*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][[f'{gwas}_varexp']].min()[0],
+#                                  1.05*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][[f'{gwas}_varexp']].max()[0]])
+            ax[gwas_idx].set_ylim([0.95*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_varexp','sim_varexp']].min().min(),
+                                  1.05*df.loc[(~df[f'r_locus{locus_idx}'].isna())&(df[f'r_locus{locus_idx}']**2>r2_threshold)][['real_varexp','sim_varexp']].max().max()])
+            ax[gwas_idx].set_title(gwas)
+            ax[gwas_idx].set_ylabel('Variance Explained')   
+        plt.suptitle(f'Risk AF vs. Variance Explained (locus {locus_idx+1}, {sentinel_chr}:{sentinel_pos})')
+        plt.xlabel('Risk AF')
+        fig.subplots_adjust(left=0.2)
+#        plt.savefig(smiles_wd+'smiles/plots/'+phen+f'.raf_varexp.r2_{r2_threshold}.locusidx_{locus_idx}.png',dpi=600)
+
+        
     
     
 #    prop_raf_gt_sentinel = [] #proportion of variants in a given locus with raf > sentinel variant raf

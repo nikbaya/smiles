@@ -317,7 +317,10 @@ def get_sim_all_loci_mt(phen, n_top_loci, ld_window, pval_threshold, maf, block_
 #            mt_all_loci = mt_all_loci.filter_rows((mt_all_loci.loci_rank>=0)&(mt_all_loci.loci_rank<n_top_loci_sim)) #loci rank is zero indexed
 #            assert hl.agg.max(mt_all_loci.loci_rank)==n_top_loci_sim-1
         
-        h2 = mt_all_loci.aggregate_rows(hl.agg.sum(mt_all_loci.real_varexp*(mt_all_loci.sim_truebeta!=0))) #total variance explained by n_top_loci_sim sentinel variants
+#        h2 = mt_all_loci.aggregate_rows(hl.agg.sum(mt_all_loci.real_varexp*(mt_all_loci.sim_truebeta!=0))) #total variance explained by n_top_loci_sim sentinel variants
+        h2 = 1
+        
+
 
         count = mt_all_loci.count()
         print('\n####################')
@@ -335,7 +338,7 @@ def get_sim_all_loci_mt(phen, n_top_loci, ld_window, pval_threshold, maf, block_
             genotype=mt_all_loci.dosage,
             beta=mt_all_loci.sim_truebeta,
             h2=h2,
-            exact_h2=True)
+            exact_h2=False)
 
         sim_all_loci = sim_all_loci.checkpoint(sim_all_loci_path,overwrite=True)
 
@@ -388,11 +391,21 @@ def get_loci_ld(phen, n_top_loci, ld_window, block_mhc, random_betas=False):
                 wd +
                 phen +
                 f'.gwas{suffix}.ht')
-    sim_rows = ht.to_pandas()
-    top_variants = []
-    ss = sim_rows.copy()
+    df = ht.to_pandas()
+    ss = df.copy()
     ss = ss.rename(columns={'locus.contig':'chr','locus.position':'pos',
                            'real_pval':'pval'})
+#    if block_mhc: #combine all variants in MHC (restrict to only one hit)
+#        start = 30400000 # from plot_smiles.py and cytoBand.txt
+#        stop = 46200000 # from plot_smiles.py and cytoBand.txt
+#        mhc = ss[(ss.chr=='6')&(ss.pos>=start)&(ss.pos<=stop)]
+#        if len(mhc)>0: #if there are variants in MHC
+#            print(f'Number of variants in MHC (start=6:{start},stop=6:{stop}): {len(mhc)}')
+#            non_mhc = ss[~((ss.chr=='6')&(ss.pos>=start)&(ss.pos<=stop))]
+#            ss = non_mhc.append(mhc[mhc.pval==mhc.pval.min()])
+    print(f'\n... Post-filter # of variants keeping a max of one variant in MHC: {ss.shape[0]} ...')
+          
+    top_variants = []
     ct = 0
     
     ss_tmp = ss.copy() #dataframe from which top loci will be removed
