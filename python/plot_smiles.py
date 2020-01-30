@@ -11,26 +11,43 @@ Create "smiles" plots -- Risk allele effect size as a function of risk allele fr
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 
 smiles_wd = "/Users/nbaya/Documents/lab/smiles/"
 
 phen_dict = { '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
              '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
-##             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
-##             'Mahajan.NatGenet2018b.T2D.European.coding.tsv.gz':'T2D', #this is the edited version of the original data, some unnecessary columns were removed
+###             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
+###             'Mahajan.NatGenet2018b.T2D.European.coding.tsv.gz':'T2D', #this is the edited version of the original data, some unnecessary columns were removed
              'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
-##             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
-##        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
+###             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
+###        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
         'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
         'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
         'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
         'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
-#        '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
+##        '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
         'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD'}
+
+## GWAS catalog
+# myocardial infarction
+# lung cancer
+# breast cancer 
+# multiple sclerosis
+
+# other cancers?
+# Stroke?
+# Immunochip chip?
+# RA (?) 
+
+#for i in range(1,23):
+#    genmap_chr = genmap[genmap.chr==i].sort_values(by='pos') # for comptuational speed improvement, save all genmap_chr to a list
+#    plt.plot(genmap_chr.pos/genmap_chr.pos.max(), genmap_chr.cm/genmap_chr.cm.max())
+
 
 highlight_coding = True
 ld_clumping = True #only show the top hit (variant with lowest p-value) in a window of size {ld_wind_kb}
-get_top_loci = True # only show top {n_top_loci} in the plot, and color by loci
+get_top_loci = False # only show top {n_top_loci} in the plot, and color by loci
 n_top_loci = int(1e10)
 ld_wind_kb = 300 #int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
 ld_wind_cm = 0.6 # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
@@ -60,31 +77,33 @@ def impute_cm(genmap, chr, pos):
             a_pos, a_cm = genmap_chr[genmap_chr.pos<pos].tail(1)[['pos','cm']].values[0] # throws an IndexError if pos < min(genmap_chr.pos)
 #            print('1')
         except IndexError:
-            cm = genmap_chr.cm.min()
+#            cm = genmap_chr.cm.min()
 #            print('2')
+            # pos = genmap_chr.pos.min()
+            head = genmap_chr.head(5)
+            x = np.asarray(head['pos']).reshape(-1,1)
+            y = head['cm']
+            model = LinearRegression().fit(x,y)
+            cm = model.coef_[0]*pos+ model.intercept_
+            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
             return cm
         try:
             b_pos, b_cm = genmap_chr[genmap_chr.pos>pos].head(1)[['pos','cm']].values[0] # throws an IndexError if pos > max(genmap_chr.pos)
 #            print('3')
         except IndexError:
 #            print('4')
-            cm = genmap_chr.cm.max()
+#            cm = genmap_chr.cm.max()
+            tail= genmap_chr.tail(5)
+            x = np.asarray(tail['pos']).reshape(-1,1)
+            y = tail['cm']
+            model = LinearRegression().fit(x,y)
+            cm = model.coef_[0]*pos + model.intercept_
+            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
             return cm
 #        print('5')
         cm = a_cm + (b_cm-a_cm)*(pos-a_pos)/(b_pos-a_pos)
         return cm
 
-
-def impute_cm_alt(genmap, chr, pos):
-    genmap_chr = genmap[genmap.chr==chr].sort_values(by='pos') # for comptuational speed improvement, save all genmap_chr to a list
-    if pos in genmap_chr.pos.values:
-        return genmap_chr[genmap_chr.pos==pos].cm.values[0]
-    else:
-        a_pos, a_cm = genmap_chr[genmap_chr.pos<pos].tail(1)[['pos','cm']].values[0] # throws an IndexError if pos < min(genmap_chr.pos)
-        b_pos, b_cm = genmap_chr[genmap_chr.pos>pos].head(1)[['pos','cm']].values[0] # throws an IndexError if pos > max(genmap_chr.pos)
-        cm = a_cm + (b_cm-a_cm)*(pos-a_pos)/(b_pos-a_pos)
-        return cm
-            
     
 def impute_pos(genmap, chr, cm):
     genmap_chr = genmap[genmap.chr==chr]
@@ -93,26 +112,29 @@ def impute_pos(genmap, chr, cm):
     else:
         try:
             a_pos, a_cm = genmap_chr[genmap_chr.cm<cm].tail(1)[['pos','cm']].values[0] # throws an IndexError if cm < min(genmap_chr.cm)
-        except:
-            pos = genmap_chr.pos.min()
+        except IndexError:
+            # pos = genmap_chr.pos.min()
+            head = genmap_chr.head(5)
+            x = np.asarray(head['cm']).reshape(-1,1)
+            y = head['pos']
+            model = LinearRegression().fit(x,y)
+            pos = int(round(model.coef_[0]*cm + model.intercept_))
+            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
             return pos
         try:
             b_pos, b_cm = genmap_chr[genmap_chr.cm>cm].head(1)[['pos','cm']].values[0] # throws an IndexError if pos is > max(genmap_chr.pos)
-        except:
-            pos = genmap_chr.pos.max()
-            return pos
+        except IndexError:
+#            pos = genmap_chr.pos.max()
+            tail= genmap_chr.tail(5)
+            x = np.asarray(tail['cm']).reshape(-1,1)
+            y = tail['pos']
+            model = LinearRegression().fit(x,y)
+            pos = int(round(model.coef_[0]*cm + model.intercept_))
+            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
+            return pos        
         pos = a_pos + (b_pos-a_pos)*(cm-a_cm)/(b_cm-a_cm)
         return pos
     
-def impute_pos_alt(genmap, chr, cm):
-    genmap_chr = genmap[genmap.chr==chr]
-    if cm in genmap_chr.cm.values:
-        return genmap_chr[genmap_chr.cm==cm].pos.values[0]
-    else:
-        a_pos, a_cm = genmap_chr[genmap_chr.cm<cm].tail(1)[['pos','cm']].values[0] # throws an IndexError if cm < min(genmap_chr.cm)
-        b_pos, b_cm = genmap_chr[genmap_chr.cm>cm].head(1)[['pos','cm']].values[0] # throws an IndexError if pos is > max(genmap_chr.pos)
-        pos = a_pos + (b_pos-a_pos)*(cm-a_cm)/(b_cm-a_cm)
-        return pos
     
 for fname, phen in phen_dict.items():
     print(f'Starting phen {phen}, using file {fname}')
@@ -169,7 +191,7 @@ for fname, phen in phen_dict.items():
 #            ss0[f'ld_index_{ld_wind_kb}'] = [f'{entry.chr}-{int(entry.pos/ld_wind_kb)}' for id,entry in ss0.iterrows()]
 #        ss0 = ss0.loc[ss0.groupby(f'ld_index_{ld_wind_kb}')['pval'].idxmin()]
     
-    for pval_threshold in [1e-5, 1e-6, 1e-7, 5e-8, 1e-8]:#[1e-5,5e-8,1e-8]:
+    for pval_threshold in [1e-5, 1e-6, 1e-7, 5e-8, 1e-8]:
         
         ss = ss0[ss0.pval < pval_threshold].reset_index(drop=True)
 
@@ -223,31 +245,24 @@ for fname, phen in phen_dict.items():
         if ld_clumping:
             print(f'\nGetting loci for LD window={ld_wind_cm}cM ...\nPre-filter # of variants (pval={pval_threshold}) = {ss.shape[0]}')
             for coding, ss_tmp in [[False, ss_noncoding], [True, ss_coding]]:
-                success = 0
-                fail = 0
+#                success = 0
+#                fail = 0
                 ss_keep = ss[[False]*len(ss)]
                 i = 0 
                 while len(ss_tmp)>0:
                     chr, pos = ss_tmp[ss_tmp.pval==ss_tmp.pval.min()][['chr','pos']].values[0]
-                    try:
-                        cm = impute_cm_alt(genmap=genmap, chr=chr, pos=pos) # genetic distance of sentinel in cM
-                        ss_w_top_locus = ss_tmp[(ss_tmp['chr']==chr)&(ss_tmp['pos']==pos)].copy() #extract sentinel variant
-                        ss_w_top_locus['loci_rank'] = i
-                        ss_keep = ss_keep.append(ss_w_top_locus)
-                        a_pos = impute_pos_alt(genmap=genmap, chr=chr, cm=cm-ld_wind_cm/2) # start of window around sentinel
-                        b_pos = impute_pos_alt(genmap=genmap, chr=chr, cm=cm+ld_wind_cm/2) # end of window around sentinel
-#                        print(f'{chr}:{pos}, {cm}cM [{a_pos}, {b_pos}]')
-                        success += 1
-                    except IndexError:
-                        a_pos = pos-ld_wind_cm/2*1e6 # cM to base pair position conversion
-                        b_pos = pos+ld_wind_cm/2*1e6 # cM to base pair position conversion
-                        fail += 1
+                    cm = impute_cm(genmap=genmap, chr=chr, pos=pos) # genetic distance of sentinel in cM
+                    ss_w_top_locus = ss_tmp[(ss_tmp['chr']==chr)&(ss_tmp['pos']==pos)].copy() #extract sentinel variant
+                    ss_w_top_locus['loci_rank'] = i
+                    ss_keep = ss_keep.append(ss_w_top_locus, sort=False)
+                    a_pos = impute_pos(genmap=genmap, chr=chr, cm=cm-ld_wind_cm/2) # start of window around sentinel
+                    b_pos = impute_pos(genmap=genmap, chr=chr, cm=cm+ld_wind_cm/2) # end of window around sentinel
                     ss_tmp = ss_tmp[~((ss_tmp['chr']==chr)&(ss_tmp['pos']>=a_pos)&(ss_tmp['pos']<=b_pos))].copy() #remove rows not around most significant hit
                     i += 1
-                print(f'success rate (pruning w/ cM): {success/(success+fail)}')
+#                print(f'success rate (pruning w/ cM): {success/(success+fail)}')
                 ss_tmp = ss_keep    
                 ss_tmp = ss_tmp.sort_index() #unnecessary step, but restores the order of variants
-                ss_final = ss_tmp if ss_final is None else ss_final.append(ss_tmp)                
+                ss_final = ss_tmp if ss_final is None else ss_final.append(ss_tmp, sort=False)                
             ss = ss_final
                 
         print(f'Post-filter # of variants (LD window={ld_wind_cm}cM): {ss.shape[0]}')
@@ -261,106 +276,106 @@ for fname, phen in phen_dict.items():
             ss.to_csv(smiles_wd+'data/'+clumped_fname,sep='\t',index=False, compression='gzip')
             ss0 = ss.copy() #useful to speed up iterations over multiple p-value thresholds (do not include if plotting figures)
 
-            
-        for maf in [0]:
-            if maf != 0:
-                ss = ss[(ss.raf>maf)&(ss.raf<1-maf)]
-            
-            file_prefix = f'{phen}.pval_{pval_threshold}'+(f'.maf_{maf}' if maf!=0 else '')
-            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-            
-            #effect size beta
-            fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
-            if 'coding' in ss.columns.values and highlight_coding:
-                if get_top_loci:
-                    for loci_i in range(n_top_loci):
-                        ax.plot(ss[(~ss.coding)&(ss.loci_rank==loci_i)].raf, ss[~ss.coding&(ss.loci_rank==loci_i)].rbeta,'.',ms=4,c=colors[loci_i%10]) #plot noncoding variants
-                        ax.plot(ss[ss.coding&(ss.loci_rank==loci_i)].raf, ss[ss.coding&(ss.loci_rank==loci_i)].rbeta, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[loci_i%10]) #plot coding variants
-                else:
-                    ax.plot(ss[~ss.coding].raf, ss[~ss.coding].rbeta,'.',ms=4,c='#1f77b4') #plot noncoding variants
-                    ax.plot(ss[ss.coding].raf, ss[ss.coding].rbeta, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75) #plot coding variants
-                    plt.legend(['non-coding','coding'], loc=9)
-            else:
-                ax.plot(ss.raf, ss.rbeta,'.',ms=2,alpha=1)
-            plt.xlabel('Risk allele frequency')
-            plt.ylabel('Effect size')
-            plt.xlim([-0.01, 1.01])
-            plt.title(f'AF vs. Effect Size\nphen: {phen}, n: {n}, pval threshold: {pval_threshold}'
-                      +(f', maf>{maf}' if maf!=0 else '')+(f', ld block: {int(ld_wind_kb)}kb' if ld_clumping else '')
-                      +(f', loci window: {int(ld_wind_kb)}kb' if get_top_loci else ''))
-            suffix = ''
-            if 'coding' in ss.columns.values  and highlight_coding:
-                suffix = '.highlightcoding'
-            if ld_clumping and not get_top_loci:
-                suffix += f'.ldclumping{ld_wind_kb}'
-            if get_top_loci:
-                suffix += f'.top{n_top_loci}loci'
-            if block_mhc:
-                suffix += f'.block_mhc'
-            if savefig:
-                fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_effectsize{suffix}.png',dpi=600)
-            if not showfig:
-                plt.close()
+        if pval_threshold == 1e-8:
+            for maf in [0]:
+                if maf != 0:
+                    ss = ss[(ss.raf>maf)&(ss.raf<1-maf)]
                 
-            #variance explained
-            fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))    
-            if 'coding' in ss.columns.values  and highlight_coding:
-                ss['var_exp'] = 2*ss.raf*(1-ss.raf)*ss.rbeta**2
-                if get_top_loci:
-                    for loci_i in range(n_top_loci):
-                        ax.plot(ss[~ss.coding&(ss.loci_rank==loci_i)].raf, ss[~ss.coding&(ss.loci_rank==loci_i)].var_exp,'.',ms=4,c=colors[loci_i%10]) #plot noncoding variants
-                        ax.plot(ss[ss.coding&(ss.loci_rank==loci_i)].raf,  ss[ss.coding&(ss.loci_rank==loci_i)].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[loci_i%10]) #plot coding variants
-                else:
-                    ax.plot(ss[~ss.coding].raf, ss[~ss.coding].var_exp,'.',ms=4,c='#1f77b4')
-                    ax.plot(ss[ss.coding].raf, ss[ss.coding].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c='#1f77b4')
-                    plt.legend(['non-coding','coding'],loc=9)
-            else:
-                ax.plot(ss.raf, 2*ss.raf*(1-ss.raf)*ss.rbeta**2,'.',ms=2)
-            plt.xlabel('Risk allele frequency')
-            plt.ylabel('Variance explained')
-            plt.xlim([-0.01, 1.01])
-            plt.title(f'AF vs. Variance Explained\nphen: {phen}, n: {n}, pval threshold: {pval_threshold}'
-                      +(f', maf>{maf}' if maf!=0 else '')+(f', ld block: {int(ld_wind_kb)}kb' if ld_clumping else '')
-                      +(f', loci window: {int(ld_wind_kb)}kb' if get_top_loci else ''))
-            suffix = ''
-            if 'coding' in ss.columns.values  and highlight_coding:
-                suffix = '.highlightcoding'
-            if ld_clumping:
-                suffix += f'.ldclumping{ld_wind_kb}'
-            if get_top_loci:
-                suffix += f'.top{n_top_loci}loci'
-            if block_mhc:
-                suffix += f'.block_mhc'
-            if savefig:
-                fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_varianceexplained{suffix}.png',dpi=600)
-            if not showfig:
-                plt.close()
-
-            #variance explained, colored by chromosome
-            if not get_top_loci:
+                file_prefix = f'{phen}.pval_{pval_threshold}'+(f'.maf_{maf}' if maf!=0 else '')
+                colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+                
+                #effect size beta
                 fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
-                ss['var_exp'] = 2*ss.raf*(1-ss.raf)*ss.rbeta**2
-                for i, ch in enumerate([*range(1,23)]+['X']):
-                    if 'coding' in ss.columns.values and highlight_coding:
-                        ax.plot(ss[(ss.chr==str(ch))&(~ss.coding)].raf, ss[(ss.chr==str(ch))&(~ss.coding)].var_exp,'.',ms=4,c=colors[i%10])
-                        ax.plot(ss[(ss.chr==str(ch))&(ss.coding)].raf, ss[(ss.chr==str(ch))&(ss.coding)].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[i%10])
+                if 'coding' in ss.columns.values and highlight_coding:
+                    if get_top_loci:
+                        for loci_i in range(n_top_loci):
+                            ax.plot(ss[(~ss.coding)&(ss.loci_rank==loci_i)].raf, ss[~ss.coding&(ss.loci_rank==loci_i)].rbeta,'.',ms=4,c=colors[loci_i%10]) #plot noncoding variants
+                            ax.plot(ss[ss.coding&(ss.loci_rank==loci_i)].raf, ss[ss.coding&(ss.loci_rank==loci_i)].rbeta, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[loci_i%10]) #plot coding variants
                     else:
-                        raf = ss[ss.chr==str(ch)]['raf']
-                        rbeta = ss[ss.chr==str(ch)]['rbeta']
-                        ax.plot(raf, 2*raf*(1-raf)*rbeta**2,'.',ms=2)
+                        ax.plot(ss[~ss.coding].raf, ss[~ss.coding].rbeta,'.',ms=4,c='#1f77b4') #plot noncoding variants
+                        ax.plot(ss[ss.coding].raf, ss[ss.coding].rbeta, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75) #plot coding variants
+                        plt.legend(['non-coding','coding'], loc=9)
+                else:
+                    ax.plot(ss.raf, ss.rbeta,'.',ms=2,alpha=1)
+                plt.xlabel('Risk allele frequency')
+                plt.ylabel('Effect size')
+                plt.xlim([-0.01, 1.01])
+                plt.title(f'AF vs. Effect Size\nphen: {phen}, n: {n}, pval threshold: {pval_threshold}'
+                          +(f', maf>{maf}' if maf!=0 else '')+(f', ld block: {int(ld_wind_kb)}kb' if ld_clumping else '')
+                          +(f', loci window: {int(ld_wind_kb)}kb' if get_top_loci else ''))
+                suffix = ''
+                if 'coding' in ss.columns.values  and highlight_coding:
+                    suffix = '.highlightcoding'
+                if ld_clumping and not get_top_loci:
+                    suffix += f'.ldclumping{ld_wind_kb}'
+                if get_top_loci:
+                    suffix += f'.top{n_top_loci}loci'
+                if block_mhc:
+                    suffix += f'.block_mhc'
+                if savefig:
+                    fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_effectsize{suffix}.png',dpi=600)
+                if not showfig:
+                    plt.close()
+                    
+                #variance explained
+                fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))    
+                if 'coding' in ss.columns.values  and highlight_coding:
+                    ss['var_exp'] = 2*ss.raf*(1-ss.raf)*ss.rbeta**2
+                    if get_top_loci:
+                        for loci_i in range(n_top_loci):
+                            ax.plot(ss[~ss.coding&(ss.loci_rank==loci_i)].raf, ss[~ss.coding&(ss.loci_rank==loci_i)].var_exp,'.',ms=4,c=colors[loci_i%10]) #plot noncoding variants
+                            ax.plot(ss[ss.coding&(ss.loci_rank==loci_i)].raf,  ss[ss.coding&(ss.loci_rank==loci_i)].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[loci_i%10]) #plot coding variants
+                    else:
+                        ax.plot(ss[~ss.coding].raf, ss[~ss.coding].var_exp,'.',ms=4,c='#1f77b4')
+                        ax.plot(ss[ss.coding].raf, ss[ss.coding].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c='#1f77b4')
+                        plt.legend(['non-coding','coding'],loc=9)
+                else:
+                    ax.plot(ss.raf, 2*ss.raf*(1-ss.raf)*ss.rbeta**2,'.',ms=2)
                 plt.xlabel('Risk allele frequency')
                 plt.ylabel('Variance explained')
                 plt.xlim([-0.01, 1.01])
-                plt.title(f'AF vs. Variance Explained, colored by chromosome\nphen: {phen}, n: {n}, pval threshold: {pval_threshold}'
-                          +(f', maf>{maf}' if maf!=0 else '')+(f', ld block: {int(ld_wind_kb)}kb' if ld_clumping else ''))
+                plt.title(f'AF vs. Variance Explained\nphen: {phen}, n: {n}, pval threshold: {pval_threshold}'
+                          +(f', maf>{maf}' if maf!=0 else '')+(f', ld block: {int(ld_wind_kb)}kb' if ld_clumping else '')
+                          +(f', loci window: {int(ld_wind_kb)}kb' if get_top_loci else ''))
                 suffix = ''
                 if 'coding' in ss.columns.values  and highlight_coding:
                     suffix = '.highlightcoding'
                 if ld_clumping:
                     suffix += f'.ldclumping{ld_wind_kb}'
+                if get_top_loci:
+                    suffix += f'.top{n_top_loci}loci'
                 if block_mhc:
                     suffix += f'.block_mhc'
                 if savefig:
-                    fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_varianceexplained.coloredbychr{suffix}.png',dpi=600)
+                    fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_varianceexplained{suffix}.png',dpi=600)
                 if not showfig:
                     plt.close()
+    
+                #variance explained, colored by chromosome
+                if not get_top_loci:
+                    fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
+                    ss['var_exp'] = 2*ss.raf*(1-ss.raf)*ss.rbeta**2
+                    for i, ch in enumerate([*range(1,23)]):
+                        if 'coding' in ss.columns.values and highlight_coding:
+                            ax.plot(ss[(ss.chr==ch)&(~ss.coding)].raf, ss[(ss.chr==ch)&(~ss.coding)].var_exp,'.',ms=4,c=colors[i%10])
+                            ax.plot(ss[(ss.chr==ch)&(ss.coding)].raf, ss[(ss.chr==ch)&(ss.coding)].var_exp, 'o',ms=10,markerfacecolor='none', markeredgewidth=0.75,c=colors[i%10])
+                        else:
+                            raf = ss[ss.chr==str(ch)]['raf']
+                            rbeta = ss[ss.chr==str(ch)]['rbeta']
+                            ax.plot(raf, 2*raf*(1-raf)*rbeta**2,'.',ms=2)
+                    plt.xlabel('Risk allele frequency')
+                    plt.ylabel('Variance explained')
+                    plt.xlim([-0.01, 1.01])
+                    plt.title(f'AF vs. Variance Explained, colored by chromosome\nphen: {phen}, n: {n}, pval threshold: {pval_threshold}'
+                              +(f', maf>{maf}' if maf!=0 else '')+(f', ld block: {int(ld_wind_kb)}kb' if ld_clumping else ''))
+                    suffix = ''
+                    if 'coding' in ss.columns.values  and highlight_coding:
+                        suffix = '.highlightcoding'
+                    if ld_clumping:
+                        suffix += f'.ldclumping{ld_wind_kb}'
+                    if block_mhc:
+                        suffix += f'.block_mhc'
+                    if savefig:
+                        fig.savefig(smiles_wd+f'smiles/plots/{file_prefix}.raf_varianceexplained.coloredbychr{suffix}.png',dpi=600)
+                    if not showfig:
+                        plt.close()
