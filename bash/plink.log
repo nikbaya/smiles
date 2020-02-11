@@ -1,0 +1,15 @@
+PLINK v1.90b6.15 64-bit (21 Jan 2020)
+Options in effect:
+  --bfile /Users/nbaya/Documents/lab/smiles/data/arabidopsis2
+  --chr 1-5
+  --clump
+  --make-bed
+
+Hostname: wm65b-8a9
+Working directory: /Users/nbaya/Documents/lab/smiles/smiles/bash
+Start time: Tue Feb 11 11:20:49 2020
+
+Error: Missing --clump parameter.
+For more information, try "plink --help <flag name>" or "plink --help | more".
+
+End time: Tue Feb 11 11:20:49 2020
