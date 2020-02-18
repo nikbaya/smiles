@@ -66,12 +66,18 @@ write.table(x=a,file=b,sep="\t")
 load('/Users/nbaya/Downloads/snpmat_full_beagle_corrected_lowNA_highMAF.R')
 
 
-load('/Users/nbaya/Documents/lab/smiles/data/snpmat_full_beagle_corrected_lowNA_highMAF.R')
+# available on Google Drive if not available locally
+load('/Users/nbaya/Downloads/snpmat_full_beagle_corrected_lowNA_highMAF.R') 
+snpmat <- snpmat_beagle_corrected_filtered_lowNA_highMAF
+
+test = snpmat[,(ncol(snpmat)-10):ncol(snpmat)]
+dim(test)
+cor(test, method='pearson')
+
+colnames(test)
 
 
-dim(snpmat_beagle_corrected_filtered_lowNA_highMAF)
 
-X = snpmat_beagle_corrected_filtered_lowNA_highMAF
 
 
 

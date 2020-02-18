@@ -178,6 +178,24 @@ for fname, phen in phen_dict.items():
         else:
             assert False, 'insufficient information to calculate risk allele frequency'
     
+    # remove SNPs with beta=NA
+    snp_ct_before = ss0.shape[0]
+    ss0 = ss0.dropna(axis=0, subset='beta')
+    snp_ct_after = ss0.shape[0]
+    print(f'# of SNPs removed with missing beta: {snp_ct_before-snp_ct_after}')
+    
+    # remove SNPs with EAF=NA
+    snp_ct_before = ss0.shape[0]
+    ss0 = ss0.dropna(axis=0, subset='EAF')
+    snp_ct_after = ss0.shape[0]
+    print(f'# of SNPs removed with missing EAF: {snp_ct_before-snp_ct_after}')
+          
+    # remove invariant SNPs (MAF=0)
+    snp_ct_before = ss0.shape[0]
+    ss0 = ss0[(ss0.EAF>0 & ss0.EAF<1)]
+    snp_ct_after = ss0.shape[0]
+    print(f'# of SNPs removed with MAF=0: {snp_ct_before-snp_ct_after}')
+    
     ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'EAF']
     ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'EAF']
 
@@ -278,8 +296,8 @@ for fname, phen in phen_dict.items():
 
         if pval_threshold == 1e-8:
             for maf in [0]:
-                if maf != 0:
-                    ss = ss[(ss.raf>maf)&(ss.raf<1-maf)]
+                
+                ss = ss[(ss.raf>maf)&(ss.raf<1-maf)]
                 
                 file_prefix = f'{phen}.pval_{pval_threshold}'+(f'.maf_{maf}' if maf!=0 else '')
                 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
