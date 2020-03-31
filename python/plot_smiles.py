@@ -15,19 +15,21 @@ from sklearn.linear_model import LinearRegression
 
 smiles_wd = "/Users/nbaya/Documents/lab/smiles/"
 
-phen_dict = { '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
-             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
-###             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
-###             'Mahajan.NatGenet2018b.T2D.European.coding.tsv.gz':'T2D', #this is the edited version of the original data, some unnecessary columns were removed
-             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
-###             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
-###        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
-        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
-        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
-        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
-        'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
-##        '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
-        'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD'}
+phen_dict = { #'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
+#             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
+####             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
+####             'Mahajan.NatGenet2018b.T2D.European.coding.tsv.gz':'T2D', #this is the edited version of the original data, some unnecessary columns were removed
+#             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
+####             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
+####        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
+#        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
+#        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
+#        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
+#        'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
+###        '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
+#        'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD',
+        '50_irnt.gwas.imputed_v3.male.coding.tsv.bgz':'Standing height male',
+        '50_irnt.gwas.imputed_v3.female.coding.tsv.bgz':'Standing height female'}
 
 ## GWAS catalog
 # myocardial infarction
@@ -161,11 +163,15 @@ for fname, phen in phen_dict.items():
     if 'n_complete_samples' in ss0.columns.values:
         print('renaming field "n_complete_samples" to "n"')
         ss0 = ss0.rename(columns={'n_complete_samples':'n'})
-    n = int(ss0.n.mean())
-
-    if ss0.n.std() != 0:
-        print('WARNING: Number of samples varies across SNPs')
-        
+    sample_ct_col_ls = list({'n_complete_samples','n','Neff'}.intersection(ss0.columns.values)) 
+    if len(sample_ct_col_ls)>0: 
+        sample_ct_col = sample_ct_col_ls[0] #take first element of list of intersection in the very unlikely case that there are multiple sample ct fields in the intersection
+        n = round(ss0[sample_ct_col].mean())
+        if ss0[sample_ct_col].std() != 0:
+            print('WARNING: Number of samples (using column "{sample_ct_col}") varies across SNPs, these are likely meta-analyzed sumstats.')
+    else: 
+        print('WARNING: phen {phen} is missing number of samples.')
+        n = np.nan
     
     if 'EAF' not in ss0.columns.values:
         if all(x in ss0.columns.values for x in ['variant','minor_AF']):

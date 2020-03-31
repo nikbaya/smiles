@@ -36,17 +36,19 @@ t2 = t2.drop(t2.GFF_Columns, t2.f8, t2.f0, t2.f1, t2.f2, t2.f3, t2.f4, t2.f5, t2
 t2 = t2.key_by(t2.interval)
 
                                                                                                               
-filename = '50_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
-filename = '21001_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
-filename = '2443.gwas.imputed_v3.both_sexes.tsv.bgz'
-filename = 'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz'
-filename = 'EUR.CD.gwas_info03_filtered.assoc.tsv.gz'
-filename = 'EUR.UC.gwas_info03_filtered.assoc.tsv.gz'
-filename = 'daner_PGC_SCZ43_mds9.tsv.gz'
-filename = 'Mahajan.NatGenet2018b.T2D.European.tsv.gz'
-filename = 'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz'
-#filename = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
-ss0 = hl.import_table(wd_data+filename,impute=True,force=True,types={'chr':hl.tstr})
+fname = '50_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
+fname = '21001_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
+fname = '2443.gwas.imputed_v3.both_sexes.tsv.bgz'
+fname = 'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz'
+fname = 'EUR.CD.gwas_info03_filtered.assoc.tsv.gz'
+fname = 'EUR.UC.gwas_info03_filtered.assoc.tsv.gz'
+fname = 'daner_PGC_SCZ43_mds9.tsv.gz'
+fname = 'Mahajan.NatGenet2018b.T2D.European.tsv.gz'
+fname = 'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz'
+fname = 'MICAD.EUR.ExA.Consortium.PublicRelease.310517.tsv.gz'
+fname = 'breastcancer.michailidou2017.b37.cleaned.tsv.gz'
+#fname = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
+ss0 = hl.import_table(wd_data+fname,impute=True,force=True,types={'chr':hl.tstr})
 if 'variant' in list(ss0.row): 
     variant = ss0.variant.split(':')
     ss = ss0.filter(hl.is_valid_locus(variant[0], 
@@ -58,7 +60,7 @@ elif 'chr' in list(ss0.row) and 'pos' in list(ss0.row):
     ss = ss0.annotate(locus = hl.locus(contig=ss0.chr,pos=ss0.pos,reference_genome='GRCh37'))
 ss = ss.annotate(coding=hl.is_defined(t2[ss.locus]))
 ss = ss.drop('locus')
-ss.export(wd_data+filename.split('.tsv')[0]+'.coding.tsv'+filename.split('.tsv')[1])
+ss.export(wd_data+fname.split('.tsv')[0]+'.coding.tsv'+fname.split('.tsv')[1])
 
 
 

@@ -66,13 +66,18 @@ write.table(x=a,file=b,sep="\t")
 load('/Users/nbaya/Downloads/snpmat_full_beagle_corrected_lowNA_highMAF.R')
 
 
-# available on Google Drive if not available locally
+# snpmat_beagle... available on Google Drive if not available locally
+# Dimensions: 227 x 1448190
+# Note: There are no NAs
 load('/Users/nbaya/Downloads/snpmat_full_beagle_corrected_lowNA_highMAF.R') 
 snpmat <- snpmat_beagle_corrected_filtered_lowNA_highMAF
 
-test = snpmat[,(ncol(snpmat)-10):ncol(snpmat)]
+test = snpmat[,(ncol(snpmat)-1000):ncol(snpmat)]
 dim(test)
-cor(test, method='pearson')
+r_mat = cor(test, method='pearson')
+r2_mat = r_mat^2
+
+heatmap(r2_mat,legend='col')
 
 colnames(test)
 
