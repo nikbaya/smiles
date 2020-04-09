@@ -12,24 +12,25 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
+import scipy.stats as stats
 
 smiles_wd = "/Users/nbaya/Documents/lab/smiles/"
 
-phen_dict = { #'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
-#             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
+phen_dict = { '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
+             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
 ####             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
 ####             'Mahajan.NatGenet2018b.T2D.European.coding.tsv.gz':'T2D', #this is the edited version of the original data, some unnecessary columns were removed
-#             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
+             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
 ####             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
 ####        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
-#        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#EUR IBD from transethnic ancestry meta-analysis
-#        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
-#        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
-#        'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
+        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
+        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
+        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
+        'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
 ###        '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
-#        'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD',
-        '50_irnt.gwas.imputed_v3.male.coding.tsv.bgz':'Standing height male',
-        '50_irnt.gwas.imputed_v3.female.coding.tsv.bgz':'Standing height female'}
+        'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD'}#,
+#        '50_irnt.gwas.imputed_v3.male.coding.tsv.bgz':'Standing height male',
+#        '50_irnt.gwas.imputed_v3.female.coding.tsv.bgz':'Standing height female'}
 
 ## GWAS catalog
 # myocardial infarction
@@ -56,7 +57,8 @@ ld_wind_cm = 0.6 # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
 block_mhc = True
 savefig = False #True
 showfig = True
-save_clumped = False #True #whether to save the post-clumping version of the summary stats dataframe
+save_clumped = True #True #whether to save the post-clumping version of the summary stats dataframe
+filter_by_varexp = True
 
 #for i in range(1,23):
 #    genmap = pd.read_csv(f'{smiles_wd}data/genetic_map_chr{i}_combined_b37.txt', 
@@ -70,44 +72,44 @@ genmap = pd.read_csv(f'{smiles_wd}data/genetic_map_combined_b37.txt.gz',
                      sep=' ', names=['chr','pos','rate','cm'], compression='gzip')
 
 def impute_cm(genmap, chr, pos):
+    r'''
+    Extrapolates genetic distance in cM based on position `pos` in base pairs 
+    on a given chromosome `chr`, using a recombination map DataFrame `genmap`
+    '''
     genmap_chr = genmap[genmap.chr==chr].sort_values(by='pos') # for comptuational speed improvement, save all genmap_chr to a list
     if pos in genmap_chr.pos.values:
         return genmap_chr[genmap_chr.pos==pos].cm.values[0]
     else:
-#        print('0')
         try:
             a_pos, a_cm = genmap_chr[genmap_chr.pos<pos].tail(1)[['pos','cm']].values[0] # throws an IndexError if pos < min(genmap_chr.pos)
-#            print('1')
         except IndexError:
-#            cm = genmap_chr.cm.min()
-#            print('2')
-            # pos = genmap_chr.pos.min()
-            head = genmap_chr.head(5)
+            head = genmap_chr.head(10)
             x = np.asarray(head['pos']).reshape(-1,1)
             y = head['cm']
             model = LinearRegression().fit(x,y)
             cm = model.coef_[0]*pos+ model.intercept_
             print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
+            cm = max(cm, 0)
             return cm
         try:
             b_pos, b_cm = genmap_chr[genmap_chr.pos>pos].head(1)[['pos','cm']].values[0] # throws an IndexError if pos > max(genmap_chr.pos)
-#            print('3')
         except IndexError:
-#            print('4')
-#            cm = genmap_chr.cm.max()
-            tail= genmap_chr.tail(5)
+            tail= genmap_chr.tail(10)
             x = np.asarray(tail['pos']).reshape(-1,1)
             y = tail['cm']
             model = LinearRegression().fit(x,y)
             cm = model.coef_[0]*pos + model.intercept_
             print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
             return cm
-#        print('5')
         cm = a_cm + (b_cm-a_cm)*(pos-a_pos)/(b_pos-a_pos)
         return cm
 
     
 def impute_pos(genmap, chr, cm):
+    r'''
+    Extrapolates position in base pairs based on the genetic distance `cm` in cM
+    along a given chromosome `chr`, using a recombination map DataFrame `genmap`
+    '''
     genmap_chr = genmap[genmap.chr==chr]
     if cm in genmap_chr.cm.values:
         return genmap_chr[genmap_chr.cm==cm].pos.values[0]
@@ -115,24 +117,23 @@ def impute_pos(genmap, chr, cm):
         try:
             a_pos, a_cm = genmap_chr[genmap_chr.cm<cm].tail(1)[['pos','cm']].values[0] # throws an IndexError if cm < min(genmap_chr.cm)
         except IndexError:
-            # pos = genmap_chr.pos.min()
-            head = genmap_chr.head(5)
+            head = genmap_chr.head(10)
             x = np.asarray(head['cm']).reshape(-1,1)
             y = head['pos']
             model = LinearRegression().fit(x,y)
             pos = int(round(model.coef_[0]*cm + model.intercept_))
-            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
+#            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
+            pos = max(pos, 1)
             return pos
         try:
             b_pos, b_cm = genmap_chr[genmap_chr.cm>cm].head(1)[['pos','cm']].values[0] # throws an IndexError if pos is > max(genmap_chr.pos)
-        except IndexError:
-#            pos = genmap_chr.pos.max()
-            tail= genmap_chr.tail(5)
+        except IndexError: 
+            tail= genmap_chr.tail(10)
             x = np.asarray(tail['cm']).reshape(-1,1)
             y = tail['pos']
             model = LinearRegression().fit(x,y)
             pos = int(round(model.coef_[0]*cm + model.intercept_))
-            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
+#            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
             return pos        
         pos = a_pos + (b_pos-a_pos)*(cm-a_cm)/(b_cm-a_cm)
         return pos
@@ -186,19 +187,19 @@ for fname, phen in phen_dict.items():
     
     # remove SNPs with beta=NA
     snp_ct_before = ss0.shape[0]
-    ss0 = ss0.dropna(axis=0, subset='beta')
+    ss0 = ss0.dropna(axis=0, subset=['beta'])
     snp_ct_after = ss0.shape[0]
     print(f'# of SNPs removed with missing beta: {snp_ct_before-snp_ct_after}')
     
     # remove SNPs with EAF=NA
     snp_ct_before = ss0.shape[0]
-    ss0 = ss0.dropna(axis=0, subset='EAF')
+    ss0 = ss0.dropna(axis=0, subset=['EAF'])
     snp_ct_after = ss0.shape[0]
     print(f'# of SNPs removed with missing EAF: {snp_ct_before-snp_ct_after}')
           
     # remove invariant SNPs (MAF=0)
     snp_ct_before = ss0.shape[0]
-    ss0 = ss0[(ss0.EAF>0 & ss0.EAF<1)]
+    ss0 = ss0[(ss0.EAF>0) & (ss0.EAF<1)]
     snp_ct_after = ss0.shape[0]
     print(f'# of SNPs removed with MAF=0: {snp_ct_before-snp_ct_after}')
     
@@ -209,6 +210,9 @@ for fname, phen in phen_dict.items():
     
     if 'low_confidence_variant' in ss0.columns.values:
         ss0 = ss0[~ss0.low_confidence_variant]
+    
+    if filter_by_varexp:
+        ss0['var_exp'] = 2*ss0.raf*(1-ss0.raf)*ss0.rbeta**2
 #    
 #    if ld_clumping and not get_top_loci:
 #        if f'ld_index_{ld_wind_kb}' not in ss0.columns.values:
@@ -216,8 +220,21 @@ for fname, phen in phen_dict.items():
 #        ss0 = ss0.loc[ss0.groupby(f'ld_index_{ld_wind_kb}')['pval'].idxmin()]
     
     for pval_threshold in [1e-5, 1e-6, 1e-7, 5e-8, 1e-8]:
-        
-        ss = ss0[ss0.pval < pval_threshold].reset_index(drop=True)
+        if filter_by_varexp:    
+            phen_str = phen.replace(' ','_').lower()
+            clumped = pd.read_csv(f'{smiles_wd}data/clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_1e-05.tsv.gz',
+                                  compression='gzip', sep='\t')
+            clumped.loc[clumped.pval==0, 'pval'] = 5e-324
+            clumped = clumped[(clumped.raf!=0)&(clumped.raf!=1)]
+            clumped['varexp'] = 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
+            clumped['n_hat'] = stats.chi2.isf(q=clumped.pval,df=1)/clumped.varexp
+            n_hat_mean = clumped.n_hat.mean()
+            print(f'estimated n_eff: {n_hat_mean}')
+            varexp_thresh = stats.chi2.isf(q=pval_threshold,df=1)/n_hat_mean
+            ss = ss0[ss0.var_exp>varexp_thresh]
+            
+        else:        
+            ss = ss0[ss0.pval < pval_threshold].reset_index(drop=True) # filter by p-value
 
         if block_mhc: #combine all variants in MHC
             genes = pd.read_csv(smiles_wd+'data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
@@ -289,14 +306,14 @@ for fname, phen in phen_dict.items():
                 ss_final = ss_tmp if ss_final is None else ss_final.append(ss_tmp, sort=False)                
             ss = ss_final
                 
-        print(f'Post-filter # of variants (LD window={ld_wind_cm}cM): {ss.shape[0]}')
+        print(f'Post-filter # of variants (LD window={ld_wind_cm}cM): {ss.shape[0]}\n')
             
-        
         if save_clumped:
 #            ss = ss.drop('coding')
             phen_str = phen.replace(' ','_').lower()
 #            clumped_fname = f'clumped_gwas.{phen_str}.ld_wind_kb_{int(ld_wind_kb)}.{"block_mhc." if block_mhc else ""}pval_{pval_threshold}.tsv.gz'
-            clumped_fname = f'clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_{pval_threshold}.tsv.gz'
+#            clumped_fname = f'clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_{pval_threshold}.tsv.gz'
+            clumped_fname = f'clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_{pval_threshold}.{"varexp_thresh." if filter_by_varexp else ""}tsv.gz'
             ss.to_csv(smiles_wd+'data/'+clumped_fname,sep='\t',index=False, compression='gzip')
             ss0 = ss.copy() #useful to speed up iterations over multiple p-value thresholds (do not include if plotting figures)
 

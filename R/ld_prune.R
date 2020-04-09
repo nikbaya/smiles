@@ -44,6 +44,7 @@ fnames = c("GxE_FS_117ind_SP", "GxE_t50_117ind_SP", "GxE_SL_117ind_SP",
            "SLLL_85acc_NE", "SLLL_119acc_SP", "t50HL_85acc_NE", 
            "t50HL_119acc_SP", "t50LL_85acc_NE", "t50LL_119acc_SP")
 
+fnames = c("GxE_SL_117ind_SP")
 for (fname in fnames) {
   print(paste0("Starting: ",fname))
   ldprune(fname = fname)
@@ -76,6 +77,8 @@ test = snpmat[,(ncol(snpmat)-1000):ncol(snpmat)]
 dim(test)
 r_mat = cor(test, method='pearson')
 r2_mat = r_mat^2
+
+
 
 heatmap(r2_mat,legend='col')
 

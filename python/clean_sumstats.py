@@ -441,39 +441,104 @@ plot_ukb_varexp(phen='20160', phen_desc='Ever Smoked')
 plot_ukb_varexp(phen='I9_CORATHER', phen_desc='Coronary atherosclerosis')
 
 
-def plot_clumped_varexp(phen: str, phen_desc: str, maf=0.05):
+def plot_clumped_varexp(phen: str, phen_desc: str, info=None, maf=0.05):
+    if info is not None:
+        assert len({'chr','pos','info'}.intersection(info.columns.values))==3
+        
     import matplotlib.pyplot as plt
     
     ss = pd.read_csv(f'{wd_data}/clumped_gwas.{phen}.ld_wind_cm_0.6.block_mhc.pval_1e-05.tsv.gz',
                       compression='gzip', sep='\t')
+    
+    if info is None and phen in ['standing_height','bmi','standing_height_male','standing_height_female']:
+        info = pd.read_csv(f'{wd_data}/variants.tsv.bgz', compression='gzip',sep='\t')[['chr','pos','info']]
+        
+    ss = ss.merge(info[['chr','pos','info']], on=['chr','pos'])    
     ss['varexp'] = 2*ss.raf*(1-ss.raf)*ss.rbeta**2
+    
     print(ss.columns.values)
+    ss.loc[ss.pval==0, 'pval'] = 5e-324
     ss1 = ss.loc[(ss.raf>maf)&(1-ss.raf>maf)]
+    ss1['n_hat'] = stats.chi2.isf(q=ss1.pval,df=1)/ss1.varexp
+    n_hat_mean = ss1.n_hat.mean()
+    ss1['n_hat_resid'] = ss1.n_hat - n_hat_mean
+    
+#    for field in ['raf','varexp', 'beta','info']:
+#        fig, ax = plt.subplots(figsize=(6*1.2, 4*1.2))
+#        ax.plot(ss1[field], ss1.n_hat_resid, '.')
+#        plt.ylabel(r'$\hat{n_j} - \overline{n}$',fontsize=15)
+#        plt.xlabel(field,fontsize=15)
+#        plt.title(f'{phen_desc}  (maf>{maf})')
+#        plt.tight_layout()
+#        plt.savefig(f'/Users/nbaya/Downloads/{phen}.nhatresid_{field}.png',dpi=300)
+
+    fig, ax = plt.subplots(figsize=(6*1.2, 4*1.2))
+    ax.plot(ss1['info'], ss1.raf, '.')
+    plt.xlabel('info',fontsize=15)
+    plt.ylabel('raf',fontsize=15)
+    plt.title(f'{phen_desc}  (maf>{maf})')
+    plt.tight_layout()
+    plt.savefig(f'/Users/nbaya/Downloads/{phen}.info_raf.png',dpi=300)
+
+    
     pvals = [1e-5, 1e-6, 1e-7, 5e-8, 1e-8, 1e-9]
 #    pvals = np.logspace(-5,-10,6)*1e-4
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     fig, ax1 = plt.subplots(figsize=(6*1.2, 4*1.2))
-    varexp_factor = ss.n.values.mean()
-    if phen=='scz':
-        phi = 31335/(31335+38765)
-        varexp_factor = (31335+38765)*phi*(1-phi)
+    varexp_factor = n_hat_mean # ss.n.values.mean() #
+#    if phen=='scz':
+#        phi = 31335/(31335+38765)
+#        varexp_factor = (31335+38765)*phi*(1-phi)
     for i, pval in enumerate(pvals[:-1]):
         ss_tmp = ss1[(ss1.pval<pval)&(ss1.pval>pvals[i+1])]
         ax1.plot(ss_tmp.raf, ss_tmp.varexp,'.', c=colors[i])
     for i, pval in enumerate(pvals[:-1]):    
         varexp_thresh = stats.chi2.isf(q=pval,df=1)/varexp_factor
         plt.axhline(y=varexp_thresh, c=colors[i])
+#        varexp_thresh1 = stats.chi2.isf(q=pval,df=1)/(n-2*std)
+#        varexp_thresh2 = stats.chi2.isf(q=pval,df=1)/(n+2*std)
+#        plt.fill_between(x=[0,1], y1=varexp_thresh1, y2=varexp_thresh2, 
+#                         alpha=0.1, color=colors[i])
+#        plt.axhline(y=varexp_thresh, c=colors[i], ls='--', alpha=0.5)
+#        plt.axhline(y=varexp_thresh, c=colors[i], ls='--', alpha=0.5)
     plt.xlim([0,1])
-    plt.title(f'{phen_desc}  (maf>{maf})')
+    plt.title(f'{phen_desc}  (maf>{maf}, '+r'$\overline n =$'+f'{n_hat_mean} )')
     plt.xlabel('RAF')
     plt.ylabel(r'$v$')
     plt.yscale('log')
     plt.legend(pvals[:-1])
+    plt.savefig(f'/Users/nbaya/Downloads/{phen}.raf_varexp.png',dpi=300)
+
+variant_info = pd.read_csv(f'{wd_data}/variants.tsv.bgz', compression='gzip',sep='\t')
+
+plot_clumped_varexp(phen='standing_height', phen_desc='Standing Height', info=variant_info)
+
+plot_clumped_varexp(phen='standing_height_male', phen_desc='Standing Height (Male)')
+plot_clumped_varexp(phen='standing_height_female', phen_desc='Standing Height (Female)')
+
+plot_clumped_varexp(phen='bmi', phen_desc='BMI', info=variant_info)
+
+scz_orig = pd.read_csv(f'{wd_data}/daner_PGC_SCZ43_mds9.gz.hq2.gz',
+                 compression='gzip', delim_whitespace=True)
+scz_info = scz_orig.rename(columns={'CHR':'chr','BP':'pos','INFO':'info'})
+
+plot_clumped_varexp(phen='scz', phen_desc='Schizophrenia', info=scz_info[['chr','pos','info']])
 
 
-plot_clumped_varexp(phen='standing_height', phen_desc='Standing Height')
-plot_clumped_varexp(phen='bmi', phen_desc='BMI')
-plot_clumped_varexp(phen='scz', phen_desc='Schizophrenia')
+ibd_orig = pd.read_csv(f'{wd_data}/EUR.IBD.gwas_info03_filtered.assoc.gz',
+                 compression='gzip', delim_whitespace=True)
+ibd_orig = ibd_orig.rename(columns={'CHR':'chr','BP':'pos','INFO':'info'})
+plot_clumped_varexp(phen='ibd', phen_desc='IBD', info = ibd_orig[['chr','pos','info']])
+
+cd_orig = pd.read_csv(f'{wd_data}/EUR.CD.gwas_info03_filtered.assoc.gz',
+                 compression='gzip', delim_whitespace=True)
+cd_orig = cd_orig.rename(columns={'CHR':'chr','BP':'pos','INFO':'info'})
+plot_clumped_varexp(phen='cd', phen_desc='CD', info=cd_orig[['chr','pos','info']])   
+
+uc_orig = pd.read_csv(f'{wd_data}/EUR.UC.gwas_info03_filtered.assoc.gz',
+                 compression='gzip', delim_whitespace=True)
+uc_orig = uc_orig.rename(columns={'CHR':'chr','BP':'pos','INFO':'info'})
+plot_clumped_varexp(phen='uc', phen_desc='UC', info = uc_orig[['chr','pos','info']])
 
 
 ## Atrial Fibrillation from BBJ, http://jenger.riken.jp/en/result 
