@@ -16,9 +16,9 @@ https://www.gencodegenes.org/human/release_30.html
 
 import hail as hl
 
-wd_data = '/Users/nbaya/Documents/lab/smiles/data/'
+wd_data = '/Users/nbaya/Documents/lab/smiles/data'
 
-t = hl.import_table(wd_data+'gencode.v31lift37.annotation.gff3.gz',no_header=True,impute=True, comment=('#'),force=True)
+t = hl.import_table(f'{wd_data}/gencode.v31lift37.annotation.gff3.gz',no_header=True,impute=True, comment=('#'),force=True)
 #t = hl.import_table('/Users/nbaya/Downloads/gencode.v31lift37.annotation.gtf',no_header=True,impute=True, comment=('#'))
 
                                                                                                                     
@@ -48,19 +48,26 @@ fname = 'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz'
 fname = 'MICAD.EUR.ExA.Consortium.PublicRelease.310517.tsv.gz'
 fname = 'breastcancer.michailidou2017.b37.cleaned.tsv.gz'
 #fname = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
-ss0 = hl.import_table(wd_data+fname,impute=True,force=True,types={'chr':hl.tstr})
-if 'variant' in list(ss0.row): 
-    variant = ss0.variant.split(':')
-    ss = ss0.filter(hl.is_valid_locus(variant[0], 
-                                      hl.int(variant[1]),
-                                      'GRCh37'))
-    locus = ss.variant.split(':')
-    ss = ss.annotate(locus = hl.parse_locus(locus[0]+':'+locus[1],reference_genome='GRCh37'))
-elif 'chr' in list(ss0.row) and 'pos' in list(ss0.row):
-    ss = ss0.annotate(locus = hl.locus(contig=ss0.chr,pos=ss0.pos,reference_genome='GRCh37'))
-ss = ss.annotate(coding=hl.is_defined(t2[ss.locus]))
-ss = ss.drop('locus')
-ss.export(wd_data+fname.split('.tsv')[0]+'.coding.tsv'+fname.split('.tsv')[1])
+fnames = ['EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
+          'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
+          'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
+          'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
+          'daner_PGC_SCZ43_mds9.tsv.gz',
+          'AD_sumstats_Jansenetal_2019sept.tsv.gz']
+for fname in fnames:
+    ss0 = hl.import_table(f'{wd_data}/{fname}',impute=True,force=True,types={'chr':hl.tstr})
+    if 'variant' in list(ss0.row): 
+        variant = ss0.variant.split(':')
+        ss = ss0.filter(hl.is_valid_locus(variant[0], 
+                                          hl.int(variant[1]),
+                                          'GRCh37'))
+        locus = ss.variant.split(':')
+        ss = ss.annotate(locus = hl.parse_locus(locus[0]+':'+locus[1],reference_genome='GRCh37'))
+    elif 'chr' in list(ss0.row) and 'pos' in list(ss0.row):
+        ss = ss0.annotate(locus = hl.locus(contig=ss0.chr,pos=ss0.pos,reference_genome='GRCh37'))
+    ss = ss.annotate(coding=hl.is_defined(t2[ss.locus]))
+    ss = ss.drop('locus')
+    ss.export(f"{wd_data}/{fname.split('.tsv')[0]}.coding.tsv{fname.split('.tsv')[1]}")
 
 
 

@@ -53,10 +53,15 @@ for (fname in fnames) {
 # -------------------------------
 # miscellaneous
 
-fname='t50LL_119acc_SP'
+fname='GxE_FS_83ind_NE'
 a <- readRDS(paste0('/Users/nbaya/Downloads/',fname,'.RDS'))
 b <- gzfile(paste0('/Users/nbaya/Documents/lab/smiles/data/',fname,'.tsv.gz'))
 write.table(x=a,file=b,sep="\t")
+
+
+head(readRDS(paste0('/Users/nbaya/Downloads/FSHL_85acc_NE.RDS')))
+
+head(readRDS(paste0('/Users/nbaya/Downloads/GxE_FS_83ind_NE.RDS')))
 
 
 fname='GxE_FS_83ind_NE'

@@ -17,42 +17,43 @@ wd_data = "/Users/nbaya/Documents/lab/smiles/data"
 
 # Cleaning up T2D (unadjusted for BMI) data and removing unnecessary
 # columns to save space
-# Neff 
-t2d = pd.read_csv(wd_data + 'Mahajan.NatGenet2018b.T2D.European.txt.gz',
-                  compression='gzip', delimiter='\t')
-t2d = t2d.rename(columns={'Chr': 'chr', 'Pos': 'pos', 'Beta': 'beta',
-                          'Pvalue': 'pval', 'Neff': 'n_complete_samples'})
-t2d['chr'] = t2d['chr'].astype(str)
-t2d = t2d[['chr', 'pos', 'EAF', 'beta', 'pval', 'n_complete_samples']]
-t2d.to_csv(wd_data + 'Mahajan.NatGenet2018b.T2D.European.tsv.gz',
-           compression='gzip', sep='\t', index=False)
+## Neff 
+#t2d = pd.read_csv(wd_data + 'Mahajan.NatGenet2018b.T2D.European.txt.gz',
+#                  compression='gzip', delimiter='\t')
+#t2d = t2d.rename(columns={'Chr': 'chr', 'Pos': 'pos', 'Beta': 'beta',
+#                          'Pvalue': 'pval', 'Neff': 'n_complete_samples'})
+#t2d['chr'] = t2d['chr'].astype(str)
+#t2d = t2d[['chr', 'pos', 'EAF', 'beta', 'pval', 'n_complete_samples']]
+#t2d.to_csv(wd_data + 'Mahajan.NatGenet2018b.T2D.European.tsv.gz',
+#           compression='gzip', sep='\t', index=False)
 
 
 # Cleaning up T2D (adjusted for BMI) data and removing unnecessary columns
 # to save space
-t2d = pd.read_csv(wd_data + 'Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz',
+t2d = pd.read_csv(f'{wd_data}/Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz',
                   compression='gzip', delimiter='\t')
 t2d = t2d.rename(columns={'Chr': 'chr', 'Pos': 'pos', 'Beta': 'beta',
-                          'Pvalue': 'pval', 'Neff': 'n_complete_samples'})
+                          'Pvalue': 'pval', 'Neff': 'n_complete_samples',
+                          'SE':'se'})
 t2d['chr'] = t2d['chr'].astype(str)
-t2d = t2d[['chr', 'pos', 'EAF', 'beta', 'pval', 'n_complete_samples']]
-t2d.to_csv(wd_data + 'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
+t2d = t2d[['chr', 'pos', 'EAF', 'beta', 'se','pval', 'n_complete_samples']]
+t2d.to_csv(f'{wd_data}/Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
            compression='gzip', sep='\t', index=False)
 
 # Cleaning up SCZ1 data and removing unnecessary columns to save space
-scz = pd.read_csv(f'{wd_data}/pgc.scz.full.2012-04.txt.gz',
-                  compression='gzip', delim_whitespace=True)
-scz = scz.rename(columns={'hg18chr': 'chr'})
-# based on abstract (https://www.ncbi.nlm.nih.gov/pubmed/25056061)
-scz['n_complete_samples'] = 150064
-scz = scz[scz.CEUaf != '.']  # filter out SNPs with missing CEUaf
-# convert OR to correct scale for effect size
-scz['beta'] = np.log10(scz['or'])
-scz.loc[scz.beta > 0, 'EAF'] = scz.loc[scz.beta > 0, 'CEUaf'].astype(float)
-scz.loc[scz.beta < 0, 'EAF'] = 1 - scz.loc[scz.beta < 0, 'CEUaf'].astype(float)
-scz = scz[['chr', 'EAF', 'beta', 'pval', 'n_complete_samples']]
-scz.to_csv(wd_data + 'pgc.scz.full.2012-04.tsv.gz',
-           compression='gzip', sep='\t', index=False)
+#scz = pd.read_csv(f'{wd_data}/pgc.scz.full.2012-04.txt.gz',
+#                  compression='gzip', delim_whitespace=True)
+#scz = scz.rename(columns={'hg18chr': 'chr'})
+## based on abstract (https://www.ncbi.nlm.nih.gov/pubmed/25056061)
+#scz['n_complete_samples'] = 150064
+#scz = scz[scz.CEUaf != '.']  # filter out SNPs with missing CEUaf
+## convert OR to correct scale for effect size
+#scz['beta'] = np.log10(scz['or'])
+#scz.loc[scz.beta > 0, 'EAF'] = scz.loc[scz.beta > 0, 'CEUaf'].astype(float)
+#scz.loc[scz.beta < 0, 'EAF'] = 1 - scz.loc[scz.beta < 0, 'CEUaf'].astype(float)
+#scz = scz[['chr', 'EAF', 'beta', 'pval', 'n_complete_samples']]
+#scz.to_csv(wd_data + 'pgc.scz.full.2012-04.tsv.gz',
+#           compression='gzip', sep='\t', index=False)
 
 ## Liu, van Sommeren data (EUR.*.gwas_info_filtered.assoc)
 #CHR - chromosome
@@ -69,56 +70,43 @@ scz.to_csv(wd_data + 'pgc.scz.full.2012-04.tsv.gz',
 #Direction - dir
 
 
-# Clean up IBD data
-ibd = pd.read_csv(wd_data + 'EUR.IBD.gwas_info03_filtered.assoc.gz',
+# Clean up IBD, CD (Crohn's), UC (ulcerative colitis) data
+diseases = ['IBD','CD','UC']
+for disease in diseases:
+    df = pd.read_csv(f'{wd_data}/EUR.{disease}.gwas_info03_filtered.assoc.gz',
                   compression='gzip', delim_whitespace=True)
-n_cas = int([x for x in ibd.columns.values if 'FRQ_A' in x][0].split('_')[2])
-n_con = int([x for x in ibd.columns.values if 'FRQ_U' in x][0].split('_')[2])
-ibd = ibd.rename(columns={f'FRQ_U_{n_con}': 'EAF',
-                          'CHR': 'chr', 'P': 'pval', 'BP': 'pos'})
-ibd['beta'] = np.log10(ibd.OR)
-ibd['n'] = n_cas + n_con
-ibd = ibd[['chr', 'EAF', 'beta', 'pval', 'n', 'pos']]
-ibd.to_csv(wd_data + 'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
-           compression='gzip', sep='\t', index=False)
-
-# Clean up CD (Crohn's disease) data
-df = pd.read_csv(f'{wd_data}/EUR.CD.gwas_info03_filtered.assoc.gz',
-                 compression='gzip', delim_whitespace=True)
-n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
-n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
-df = df.rename(columns={f'FRQ_U_{n_con}': 'EAF',
-                        'CHR': 'chr', 'P': 'pval', 'BP': 'pos'})
-df['beta'] = np.log10(df.OR)
-df['n'] = n_cas + n_con
-df = df[['chr', 'EAF', 'beta', 'pval', 'n', 'pos']]
-df.to_csv(wd_data + 'EUR.CD.gwas_info03_filtered.assoc.tsv.gz',
-          compression='gzip', sep='\t', index=False)
-
-# Clean up UC (ulcerative colitis) data
-df = pd.read_csv(wd_data + 'EUR.UC.gwas_info03_filtered.assoc.gz',
-                 compression='gzip', delim_whitespace=True)
-n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
-n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
-df = df.rename(columns={f'FRQ_U_{n_con}': 'EAF',
-                        'CHR': 'chr', 'P': 'pval', 'BP': 'pos'})
-df['beta'] = np.log10(df.OR)
-df['n'] = n_cas + n_con
-df = df[['chr', 'EAF', 'beta', 'pval', 'n', 'pos']]
-df.to_csv(wd_data + 'EUR.UC.gwas_info03_filtered.assoc.tsv.gz',
-          compression='gzip', sep='\t', index=False)
+    n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
+    n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
+    df = df.rename(columns={f'FRQ_U_{n_con}': 'EAF','CHR': 'chr', 
+                            'P': 'pval', 'BP': 'pos','SE':'se'})    
+    df['beta'] = np.log(df.OR)
+    df['n'] = n_cas + n_con
+    df = df[['chr', 'pos', 'EAF', 'beta', 'se','pval', 'n']]
+    df.to_csv(f'{wd_data}/EUR.{disease}.gwas_info03_filtered.assoc.tsv.gz',
+              compression='gzip', sep='\t', index=False)
+    
+    
+# Clean Jansen Alzheimer's data
+ad = pd.read_csv(f'{wd_data}/AD_sumstats_Jansenetal_2019sept.txt.gz',sep='\t',
+                 compression='gzip')
+ad = ad.rename(columns={'CHR':'chr', 'BP':'pos', 'BETA':'beta','SE':'se',
+                        'P':'pval','Nsum':'n'})
+ad = ad[['chr', 'pos', 'A1','A2','EAF','beta', 'se', 'pval', 'n']]
+ad.to_csv(f'{wd_data}/AD_sumstats_Jansenetal_2019sept.tsv.gz',sep='\t',
+          compression='gzip',index=False)
 
 # Clean up daner PGC SCZ data
 df = pd.read_csv(f'{wd_data}/daner_PGC_SCZ43_mds9.gz.hq2.gz',
                  compression='gzip', delim_whitespace=True)
 n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
 n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
-df = df.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval','BP':'pos'})
+df = df.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval',
+                        'BP':'pos','SE':'se'})
 # df['beta'] = -np.log10(df.OR) # REVERSE SIGN OF ODDS RATIO because daner
 # files use odds ratios that are in reference to A1, meaning: A1*OR = A2
 df['beta'] = np.log10(df.OR)
 df['n'] = n_cas + n_con
-df = df[['chr', 'A1','A2','EAF','beta', 'pval', 'n', 'pos']]
+df = df[['chr', 'A1','A2','EAF','beta', 'se', 'pval', 'n', 'pos']]
 df.to_csv(wd_data + 'daner_PGC_SCZ43_mds9.tsv.gz',
           compression='gzip', sep='\t', index=False)
 

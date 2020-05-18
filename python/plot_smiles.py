@@ -71,69 +71,58 @@ filter_by_varexp = True
 genmap = pd.read_csv(f'{smiles_wd}data/genetic_map_combined_b37.txt.gz',
                      sep=' ', names=['chr','pos','rate','cm'], compression='gzip')
 
-def impute_cm(genmap, chr, pos):
+genmap_chr_list = [genmap[genmap.chr==chr].sort_values(by='pos') for chr in range(1,23)]
+
+def impute_cm(genmap_chr, chr, pos):
     r'''
     Extrapolates genetic distance in cM based on position `pos` in base pairs 
-    on a given chromosome `chr`, using a recombination map DataFrame `genmap`
+    on a given chromosome `chr`, using a recombination map DataFrame `genmap_chr`
     '''
-    genmap_chr = genmap[genmap.chr==chr].sort_values(by='pos') # for comptuational speed improvement, save all genmap_chr to a list
     if pos in genmap_chr.pos.values:
         return genmap_chr[genmap_chr.pos==pos].cm.values[0]
     else:
-        try:
-            a_pos, a_cm = genmap_chr[genmap_chr.pos<pos].tail(1)[['pos','cm']].values[0] # throws an IndexError if pos < min(genmap_chr.pos)
-        except IndexError:
-            head = genmap_chr.head(10)
-            x = np.asarray(head['pos']).reshape(-1,1)
-            y = head['cm']
-            model = LinearRegression().fit(x,y)
-            cm = model.coef_[0]*pos+ model.intercept_
-            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
-            cm = max(cm, 0)
-            return cm
-        try:
-            b_pos, b_cm = genmap_chr[genmap_chr.pos>pos].head(1)[['pos','cm']].values[0] # throws an IndexError if pos > max(genmap_chr.pos)
-        except IndexError:
-            tail= genmap_chr.tail(10)
-            x = np.asarray(tail['pos']).reshape(-1,1)
-            y = tail['cm']
-            model = LinearRegression().fit(x,y)
-            cm = model.coef_[0]*pos + model.intercept_
-            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
-            return cm
+#        try:
+        a_pos, a_cm = genmap_chr[genmap_chr.pos<pos].tail(1)[['pos','cm']].values[0] # throws an IndexError if pos < min(genmap_chr.pos)
+#        except IndexError:
+#            head = genmap_chr.head(10)
+#            x = np.asarray(head['pos']).reshape(-1,1)
+#            y = head['cm']
+#            model = LinearRegression().fit(x,y)
+#            cm = model.coef_[0]*pos+ model.intercept_
+#            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
+#            cm = max(cm, 0)
+#            return cm
+#        try:
+        b_pos, b_cm = genmap_chr[genmap_chr.pos>pos].head(1)[['pos','cm']].values[0] # throws an IndexError if pos > max(genmap_chr.pos)
+#        except IndexError:
+#            tail= genmap_chr.tail(10)
+#            x = np.asarray(tail['pos']).reshape(-1,1)
+#            y = tail['cm']
+#            model = LinearRegression().fit(x,y)
+#            cm = model.coef_[0]*pos + model.intercept_
+#            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
+#            return cm
         cm = a_cm + (b_cm-a_cm)*(pos-a_pos)/(b_pos-a_pos)
         return cm
 
     
-def impute_pos(genmap, chr, cm):
+def impute_pos(genmap_chr, chr, cm):
     r'''
     Extrapolates position in base pairs based on the genetic distance `cm` in cM
-    along a given chromosome `chr`, using a recombination map DataFrame `genmap`
+    along a given chromosome `chr`, using a recombination map DataFrame `genmap_chr`
     '''
-    genmap_chr = genmap[genmap.chr==chr]
     if cm in genmap_chr.cm.values:
         return genmap_chr[genmap_chr.cm==cm].pos.values[0]
     else:
         try:
             a_pos, a_cm = genmap_chr[genmap_chr.cm<cm].tail(1)[['pos','cm']].values[0] # throws an IndexError if cm < min(genmap_chr.cm)
         except IndexError:
-            head = genmap_chr.head(10)
-            x = np.asarray(head['cm']).reshape(-1,1)
-            y = head['pos']
-            model = LinearRegression().fit(x,y)
-            pos = int(round(model.coef_[0]*cm + model.intercept_))
-#            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
-            pos = max(pos, 1)
+            pos = 1
             return pos
         try:
             b_pos, b_cm = genmap_chr[genmap_chr.cm>cm].head(1)[['pos','cm']].values[0] # throws an IndexError if pos is > max(genmap_chr.pos)
         except IndexError: 
-            tail= genmap_chr.tail(10)
-            x = np.asarray(tail['cm']).reshape(-1,1)
-            y = tail['pos']
-            model = LinearRegression().fit(x,y)
-            pos = int(round(model.coef_[0]*cm + model.intercept_))
-#            print(f'chr{chr} cM:{round(cm,2)} pos:{pos}')
+            pos = np.Inf
             return pos        
         pos = a_pos + (b_pos-a_pos)*(cm-a_cm)/(b_cm-a_cm)
         return pos
@@ -219,8 +208,10 @@ for fname, phen in phen_dict.items():
 #            ss0[f'ld_index_{ld_wind_kb}'] = [f'{entry.chr}-{int(entry.pos/ld_wind_kb)}' for id,entry in ss0.iterrows()]
 #        ss0 = ss0.loc[ss0.groupby(f'ld_index_{ld_wind_kb}')['pval'].idxmin()]
     
-    for pval_threshold in [1e-5, 1e-6, 1e-7, 5e-8, 1e-8]:
-        if filter_by_varexp:    
+    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8])
+    
+    for pval_threshold in pval_thresholds:
+        if filter_by_varexp and pval_threshold<1: # this filtering is unnecessary when pval_threshold=1
             phen_str = phen.replace(' ','_').lower()
             clumped = pd.read_csv(f'{smiles_wd}data/clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_1e-05.tsv.gz',
                                   compression='gzip', sep='\t')
@@ -233,9 +224,11 @@ for fname, phen in phen_dict.items():
             varexp_thresh = stats.chi2.isf(q=pval_threshold,df=1)/n_hat_mean
             ss = ss0[ss0.var_exp>varexp_thresh]
             
-        else:        
+        elif pval_threshold<1:        
             ss = ss0[ss0.pval < pval_threshold].reset_index(drop=True) # filter by p-value
-
+        else:
+            ss = ss0
+            
         if block_mhc: #combine all variants in MHC
             genes = pd.read_csv(smiles_wd+'data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
             mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
@@ -292,13 +285,21 @@ for fname, phen in phen_dict.items():
                 i = 0 
                 while len(ss_tmp)>0:
                     chr, pos = ss_tmp[ss_tmp.pval==ss_tmp.pval.min()][['chr','pos']].values[0]
-                    cm = impute_cm(genmap=genmap, chr=chr, pos=pos) # genetic distance of sentinel in cM
-                    ss_w_top_locus = ss_tmp[(ss_tmp['chr']==chr)&(ss_tmp['pos']==pos)].copy() #extract sentinel variant
+                    genmap_chr = genmap_chr_list[chr-1]
+                    if pos < genmap_chr.pos.min():
+                        a_pos = 1 # start of window around sentinel
+                        b_pos = impute_pos(genmap_chr=genmap_chr, chr=chr, cm=ld_wind_cm/2) # end of window around sentinel
+                    elif pos > genmap_chr.pos.max():
+                        a_pos = impute_pos(genmap_chr=genmap_chr, chr=chr, cm=genmap_chr.cm.max()-ld_wind_cm/2) # start of window around sentinel
+                        b_pos = np.Inf # end of window around sentinel
+                    else:
+                        cm = impute_cm(genmap_chr=genmap_chr, chr=chr, pos=pos) # genetic distance of sentinel in cM
+                        a_pos = impute_pos(genmap_chr=genmap_chr, chr=chr, cm=cm-ld_wind_cm/2) # start of window around sentinel
+                        b_pos = impute_pos(genmap_chr=genmap_chr, chr=chr, cm=cm+ld_wind_cm/2) # end of window around sentinel
+                    ss_w_top_locus = ss_tmp[(ss_tmp['chr']==chr)&(ss_tmp['pos']==pos)].copy() #extract sentinel variant, NOTE: This step must come before extracting rows in window around sentinel
                     ss_w_top_locus['loci_rank'] = i
+                    ss_tmp = ss_tmp[~((ss_tmp['chr']==chr)&(ss_tmp['pos']>=a_pos)&(ss_tmp['pos']<=b_pos))].copy() #extract rows not in window around current sentinel variant
                     ss_keep = ss_keep.append(ss_w_top_locus, sort=False)
-                    a_pos = impute_pos(genmap=genmap, chr=chr, cm=cm-ld_wind_cm/2) # start of window around sentinel
-                    b_pos = impute_pos(genmap=genmap, chr=chr, cm=cm+ld_wind_cm/2) # end of window around sentinel
-                    ss_tmp = ss_tmp[~((ss_tmp['chr']==chr)&(ss_tmp['pos']>=a_pos)&(ss_tmp['pos']<=b_pos))].copy() #remove rows not around most significant hit
                     i += 1
 #                print(f'success rate (pruning w/ cM): {success/(success+fail)}')
                 ss_tmp = ss_keep    
