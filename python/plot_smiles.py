@@ -16,22 +16,23 @@ import scipy.stats as stats
 
 smiles_wd = "/Users/nbaya/Documents/lab/smiles/"
 
-phen_dict = { '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
+phen_dict = {
+            '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height',
              '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI',
 ####             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'}#, #diabetes diagnosed by doctor
 ####             'Mahajan.NatGenet2018b.T2D.European.coding.tsv.gz':'T2D', #this is the edited version of the original data, some unnecessary columns were removed
              'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
-####             '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
-####        'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
-        'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
-        'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
-        'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
-        'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
-###        '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
-        'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD'}#,
-#        '50_irnt.gwas.imputed_v3.male.coding.tsv.bgz':'Standing height male',
-#        '50_irnt.gwas.imputed_v3.female.coding.tsv.bgz':'Standing height female'}
-
+####            '2443.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diabetes diagnosed'} #Directly from UKB
+####            'pgc.scz.full.2012-04.tsv.gz':'SCZ'} #cases: 36,989, controls: 113,075, total: 150064
+            'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
+            'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
+            'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
+            'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
+###             '20544_2.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'SCZ-UKB'} #UKB data for SCZ
+            'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD',#,
+#               '50_irnt.gwas.imputed_v3.male.coding.tsv.bgz':'Standing height male',
+#               '50_irnt.gwas.imputed_v3.female.coding.tsv.bgz':'Standing height female'}
+            }
 ## GWAS catalog
 # myocardial infarction
 # lung cancer
@@ -57,7 +58,7 @@ ld_wind_cm = 0.6 # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
 block_mhc = True
 savefig = False #True
 showfig = True
-save_clumped = True #True #whether to save the post-clumping version of the summary stats dataframe
+save_clumped = False #True #whether to save the post-clumping version of the summary stats dataframe
 filter_by_varexp = True
 
 #for i in range(1,23):
@@ -81,27 +82,8 @@ def impute_cm(genmap_chr, chr, pos):
     if pos in genmap_chr.pos.values:
         return genmap_chr[genmap_chr.pos==pos].cm.values[0]
     else:
-#        try:
         a_pos, a_cm = genmap_chr[genmap_chr.pos<pos].tail(1)[['pos','cm']].values[0] # throws an IndexError if pos < min(genmap_chr.pos)
-#        except IndexError:
-#            head = genmap_chr.head(10)
-#            x = np.asarray(head['pos']).reshape(-1,1)
-#            y = head['cm']
-#            model = LinearRegression().fit(x,y)
-#            cm = model.coef_[0]*pos+ model.intercept_
-#            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
-#            cm = max(cm, 0)
-#            return cm
-#        try:
         b_pos, b_cm = genmap_chr[genmap_chr.pos>pos].head(1)[['pos','cm']].values[0] # throws an IndexError if pos > max(genmap_chr.pos)
-#        except IndexError:
-#            tail= genmap_chr.tail(10)
-#            x = np.asarray(tail['pos']).reshape(-1,1)
-#            y = tail['cm']
-#            model = LinearRegression().fit(x,y)
-#            cm = model.coef_[0]*pos + model.intercept_
-#            print(f'chr{chr} pos:{pos} cM:{round(cm,2)}')
-#            return cm
         cm = a_cm + (b_cm-a_cm)*(pos-a_pos)/(b_pos-a_pos)
         return cm
 
@@ -208,23 +190,25 @@ for fname, phen in phen_dict.items():
 #            ss0[f'ld_index_{ld_wind_kb}'] = [f'{entry.chr}-{int(entry.pos/ld_wind_kb)}' for id,entry in ss0.iterrows()]
 #        ss0 = ss0.loc[ss0.groupby(f'ld_index_{ld_wind_kb}')['pval'].idxmin()]
     
-    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8])
+    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True) # must be sorted largest to smallest to be able to take advantage of time-saving step where ss0 = ss.copy()
+#    pval_thresholds = sorted([1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
     
     for pval_threshold in pval_thresholds:
         if filter_by_varexp and pval_threshold<1: # this filtering is unnecessary when pval_threshold=1
+            print('filtering by vairance-explained')
             phen_str = phen.replace(' ','_').lower()
             clumped = pd.read_csv(f'{smiles_wd}data/clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_1e-05.tsv.gz',
                                   compression='gzip', sep='\t')
             clumped.loc[clumped.pval==0, 'pval'] = 5e-324
             clumped = clumped[(clumped.raf!=0)&(clumped.raf!=1)]
-            clumped['varexp'] = 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
-            clumped['n_hat'] = stats.chi2.isf(q=clumped.pval,df=1)/clumped.varexp
+            clumped['var_exp'] = 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
+            clumped['n_hat'] = stats.chi2.isf(q=clumped.pval,df=1)/clumped.var_exp
             n_hat_mean = clumped.n_hat.mean()
             print(f'estimated n_eff: {n_hat_mean}')
             varexp_thresh = stats.chi2.isf(q=pval_threshold,df=1)/n_hat_mean
-            ss = ss0[ss0.var_exp>varexp_thresh]
+            ss = ss0[ss0.var_exp>varexp_thresh].reset_index(drop=True)
             
-        elif pval_threshold<1:        
+        elif not filter_by_varexp and pval_threshold<1:        
             ss = ss0[ss0.pval < pval_threshold].reset_index(drop=True) # filter by p-value
         else:
             ss = ss0
@@ -284,7 +268,7 @@ for fname, phen in phen_dict.items():
                 ss_keep = ss[[False]*len(ss)]
                 i = 0 
                 while len(ss_tmp)>0:
-                    chr, pos = ss_tmp[ss_tmp.pval==ss_tmp.pval.min()][['chr','pos']].values[0]
+                    chr, pos = ss_tmp[ss_tmp.pval==ss_tmp.pval.min()][['chr','pos']].values[0] # sentinel variant is most significant non-clumped variant
                     genmap_chr = genmap_chr_list[chr-1]
                     if pos < genmap_chr.pos.min():
                         a_pos = 1 # start of window around sentinel
@@ -316,7 +300,9 @@ for fname, phen in phen_dict.items():
 #            clumped_fname = f'clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_{pval_threshold}.tsv.gz'
             clumped_fname = f'clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_{pval_threshold}.{"varexp_thresh." if filter_by_varexp else ""}tsv.gz'
             ss.to_csv(smiles_wd+'data/'+clumped_fname,sep='\t',index=False, compression='gzip')
-            ss0 = ss.copy() #useful to speed up iterations over multiple p-value thresholds (do not include if plotting figures)
+            
+            if pval_threshold<=1e-5:
+                ss0 = ss.copy() #useful to speed up iterations over multiple p-value thresholds (do not include if plotting figures)
 
         if pval_threshold == 1e-8:
             for maf in [0]:

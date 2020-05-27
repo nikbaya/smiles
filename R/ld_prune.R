@@ -14,7 +14,7 @@ ldprune <- function(fname) {
   # in a clump was retained for further analysis.
   
   pval_thresh = 1
-  a_tmp <- a[which(a$Pval<pval_thresh),]
+  a_tmp <- a[which(a$Pval<=pval_thresh),]
   # a_tmp$EAF = a_tmp$AC_1/(a_tmp$AC_0+a_tmp$AC_1)
   # a_tmp$RAF = (a_tmp$EAF)*(a_tmp$beta>0) + (1-a_tmp$EAF)*(a_tmp$beta<0)
   # a_tmp$rbeta = abs(a_tmp$beta)

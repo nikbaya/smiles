@@ -47,6 +47,7 @@ fname = 'Mahajan.NatGenet2018b.T2D.European.tsv.gz'
 fname = 'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz'
 fname = 'MICAD.EUR.ExA.Consortium.PublicRelease.310517.tsv.gz'
 fname = 'breastcancer.michailidou2017.b37.cleaned.tsv.gz'
+fname = 'AD_sumstats_Jansenetal_2019sept.tsv.gz'
 #fname = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
 fnames = ['EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
           'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',

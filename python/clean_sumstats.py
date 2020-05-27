@@ -429,12 +429,10 @@ plot_ukb_varexp(phen='20160', phen_desc='Ever Smoked')
 plot_ukb_varexp(phen='I9_CORATHER', phen_desc='Coronary atherosclerosis')
 
 
-def plot_clumped_varexp(phen: str, phen_desc: str, info=None, maf=0.05):
+def plot_clumped_varexp(phen: str, phen_desc: str, info=None, maf=0.05, savefig=False):
     if info is not None:
         assert len({'chr','pos','info'}.intersection(info.columns.values))==3
-        
-    import matplotlib.pyplot as plt
-    
+            
     ss = pd.read_csv(f'{wd_data}/clumped_gwas.{phen}.ld_wind_cm_0.6.block_mhc.pval_1e-05.tsv.gz',
                       compression='gzip', sep='\t')
     
@@ -460,13 +458,13 @@ def plot_clumped_varexp(phen: str, phen_desc: str, info=None, maf=0.05):
 #        plt.tight_layout()
 #        plt.savefig(f'/Users/nbaya/Downloads/{phen}.nhatresid_{field}.png',dpi=300)
 
-    fig, ax = plt.subplots(figsize=(6*1.2, 4*1.2))
-    ax.plot(ss1['info'], ss1.raf, '.')
-    plt.xlabel('info',fontsize=15)
-    plt.ylabel('raf',fontsize=15)
-    plt.title(f'{phen_desc}  (maf>{maf})')
-    plt.tight_layout()
-    plt.savefig(f'/Users/nbaya/Downloads/{phen}.info_raf.png',dpi=300)
+#    fig, ax = plt.subplots(figsize=(6*1.2, 4*1.2))
+#    ax.plot(ss1['info'], ss1.raf, '.')
+#    plt.xlabel('info',fontsize=15)
+#    plt.ylabel('raf',fontsize=15)
+#    plt.title(f'{phen_desc}  (maf>{maf})')
+#    plt.tight_layout()
+#    plt.savefig(f'/Users/nbaya/Downloads/{phen}.info_raf.png',dpi=300)
 
     
     pvals = [1e-5, 1e-6, 1e-7, 5e-8, 1e-8, 1e-9]
@@ -490,12 +488,13 @@ def plot_clumped_varexp(phen: str, phen_desc: str, info=None, maf=0.05):
 #        plt.axhline(y=varexp_thresh, c=colors[i], ls='--', alpha=0.5)
 #        plt.axhline(y=varexp_thresh, c=colors[i], ls='--', alpha=0.5)
     plt.xlim([0,1])
-    plt.title(f'{phen_desc}  (maf>{maf}, '+r'$\overline n =$'+f'{n_hat_mean} )')
+    plt.title(f'{phen_desc}  (maf>{maf}, '+r'$\overline{n} =$'+f'{round(n_hat_mean,3)} )')
     plt.xlabel('RAF')
     plt.ylabel(r'$v$')
     plt.yscale('log')
     plt.legend(pvals[:-1])
-    plt.savefig(f'/Users/nbaya/Downloads/{phen}.raf_varexp.png',dpi=300)
+    if savefig:
+        plt.savefig(f'/Users/nbaya/Downloads/{phen}.raf_varexp.png',dpi=300)
 
 variant_info = pd.read_csv(f'{wd_data}/variants.tsv.bgz', compression='gzip',sep='\t')
 
@@ -528,6 +527,39 @@ uc_orig = pd.read_csv(f'{wd_data}/EUR.UC.gwas_info03_filtered.assoc.gz',
 uc_orig = uc_orig.rename(columns={'CHR':'chr','BP':'pos','INFO':'info'})
 plot_clumped_varexp(phen='uc', phen_desc='UC', info = uc_orig[['chr','pos','info']])
 
+
+def get_n_hat_mean(phen):
+    phen_str = phen.replace(' ','_').lower()
+    clumped = pd.read_csv(f'{wd_data}/clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_1e-05.tsv.gz',
+                          compression='gzip', sep='\t')
+    clumped.loc[clumped.pval==0, 'pval'] = 5e-324
+    clumped = clumped[(clumped.raf!=0)&(clumped.raf!=1)]
+    clumped['varexp'] = 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
+    clumped['n_hat'] = stats.chi2.isf(q=clumped.pval,df=1)/clumped.varexp
+    n_hat_mean = clumped.n_hat.mean()
+    print(f'estimated n_eff for {phen}: {n_hat_mean}')
+    return n_hat_mean
+
+def plot_varexp_thresh_check(phen):
+    r'''
+    For visually verifying that varexp cutoffs are correct
+    '''
+    pval = 1e-5
+    phen_str = phen.replace(' ','_').lower()
+    ss = pd.read_csv(f'{wd_data}/clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_{pval}.varexp_thresh.tsv.gz',
+                     sep='\t',compression='gzip')
+    print(f'variant ct for {phen}: {ss.shape[0]}')
+    n_hat_mean = get_n_hat_mean(phen=phen)
+    varexp_thresh = stats.chi2.isf(q=pval_threshold,df=1)/n_hat_mean
+    fig, ax = plt.subplots(figsize=(6,4))
+    plt.plot(ss.raf, ss.var_exp,'+')
+    plt.axhline(varexp_thresh,c='r')
+    print(ss.var_exp.min())
+    print(varexp_thresh)
+    assert ~any(ss.var_exp<varexp_thresh)
+    
+plot_varexp_thresh_check(phen='standing_height')
+    
 
 ## Atrial Fibrillation from BBJ, http://jenger.riken.jp/en/result 
 # Build: GRCh37, Effect allele is "ALT" (equivalent to A2?)

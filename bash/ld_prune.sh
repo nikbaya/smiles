@@ -1,4 +1,9 @@
 #! /usr/bin/env bash
+#
+# DEPRECATED
+#
+# Script for PLINK clumping using R as a wrapper
+#
 
 ss_version=$1
 

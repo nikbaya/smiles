@@ -19,15 +19,25 @@ def clean_sumstats(pheno, overwrite=False):
         df = df.rename(columns={'Pval':'pval',
                              'Chr':'chr',
                              'Pos':'pos'})
-            
+        pre_ct = df.shape[0]
+        df = df[df.MAF>0]
+        print(f'{pre_ct-df.shape[0]} variants removed due to MAF=0')
+
+        
+        pre_ct = df.shape[0]
+        df = df.dropna(axis=0, subset=['beta','pval','MAF'])
+        print(f'{pre_ct-df.shape[0]} variants removed due to missing beta, pval, maf')
+
         df['EAF'] = df.AC_1/(df.AC_0+df.AC_1)
         df = df[(df.EAF>0)&(df.EAF<1)]
         df['raf'] = (df.EAF)*(df.beta>0) + (1-df.EAF)*(df.beta<0)
+
+        df['se'] = abs(df.beta/stats.norm.ppf(df.pval/2))
         df['rbeta'] = abs(df.beta)
         
         df['SNP'] = df.SNP.str.replace(' ','')
         
-        df = df[['chr','pos','SNP','raf','rbeta','pval']]
+        df = df[['chr','pos','SNP','raf','rbeta','se','pval']]
         
         df.to_csv(ss_fname, compression='gzip',sep='\t',index=False)
     else:
@@ -37,11 +47,13 @@ def clean_sumstats(pheno, overwrite=False):
 
     return ss_fname
 
-def clump(pheno, pval_thresh, ss_fname, overwrite=False, suffix='', clump_p1 = 0.0001, clump_p2 = 0.01):
+def clump(pheno, pval_thresh, ss_fname, suffix='', clump_p1 = 0.0001, clump_p2 = 0.01, overwrite=False):
 #    bash_script = '/stanley/genetics/users/nbaya/smiles/ld_prune.sh'
 #    exit_code = subprocess.call([bash_script,ss_fname,str(pval_thresh)])
     
     bfile = f'{data_dir}/NESP_genotypes.maf_gt_0.nonmissing'
+    
+    clump_p2 = max(clump_p1, clump_p2)
     
     clump_kb = 1000
     clump_r2 = 0.1
@@ -77,7 +89,6 @@ def clump(pheno, pval_thresh, ss_fname, overwrite=False, suffix='', clump_p1 = 0
     
             clumped = ss0.merge(plink_clumped[['chr','pos','SNP']], on=['chr','pos','SNP'])
                 
-    
             clumped.to_csv(clumped_gwas_fname, compression='gzip', sep='\t', index=False)
         else:
             clumped = pd.read_csv(clumped_gwas_fname, compression='gzip', sep='\t')
@@ -127,7 +138,7 @@ if __name__=='__main__':
 
 #    phenos = ["GxE_SL_117ind_SP"]
 
-    pval_thresh_list = [1e-3, 1e-4, 1e-5, 1e-6, 2e-7, 1e-7] # decided to add 1e-
+    pval_thresh_list = [1, 1e-3, 1e-4, 1e-5, 1e-6, 2e-7, 1e-7] 
     
     for pheno in phenos:
         print(f'\nStarting cleaning sumstats for {pheno}')
@@ -158,7 +169,7 @@ if __name__=='__main__':
                 clump(pheno=pheno, 
                       pval_thresh=pval_thresh, 
                       ss_fname=fname, 
-                      overwrite=True, 
                       suffix='.varexp_thresh',
                       clump_p1 = 1, # set to be 1 because we already thresholded on variance explained 
-                      clump_p2 = 1)
+                      clump_p2 = 1,
+                      overwrite=True)
