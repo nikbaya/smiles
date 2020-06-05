@@ -50,8 +50,8 @@ fname = 'breastcancer.michailidou2017.b37.cleaned.tsv.gz'
 fname = 'AD_sumstats_Jansenetal_2019sept.tsv.gz'
 #fname = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
 fnames = ['EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
-          'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
-          'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
+          'EUR.CD.gwas_info03_filtered.assoc.tsv.gz',
+          'EUR.UC.gwas_info03_filtered.assoc.tsv.gz',
           'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
           'daner_PGC_SCZ43_mds9.tsv.gz',
           'AD_sumstats_Jansenetal_2019sept.tsv.gz']

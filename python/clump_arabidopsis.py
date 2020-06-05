@@ -113,7 +113,10 @@ def get_varexp_thresh_sumstats(pheno, pval_thresh, ss_fname):
     
     ss0 = pd.read_csv(ss_fname, compression='gzip', sep='\t')
     ss0['var_exp'] = 2*ss0.raf*(1-ss0.raf)*ss0.rbeta**2
-    ss = ss0[ss0.var_exp>varexp_thresh]
+    if pval_thresh < 1:
+        ss = ss0[ss0.var_exp>varexp_thresh]
+    else:
+        ss = ss0
     print(f'Var. exp. thresh. results for {pheno}, pval={pval_thresh}:')
     print(f'\tInitial variant ct: {ss0.shape[0]}')
     print(f'\tFinal variant ct:   {ss.shape[0]}')
