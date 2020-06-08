@@ -236,16 +236,17 @@ def clump_chrom(ss_tmp, ld_wind_cm, chrom):
     return ss_keep
 
 if __name__=="__main__":
-    ld_clumping = True #only show the top hit (variant with lowest p-value) in a window of size `ld_wind_kb` kb or `ld_wind_cm` cm
+    ld_clumping = False #only show the top hit (variant with lowest p-value) in a window of size `ld_wind_kb` kb or `ld_wind_cm` cm
     get_top_loci = False # only show top {n_top_loci} in the plot, and color by loci
     n_top_loci = int(1e10) if get_top_loci else None
 #    ld_wind_kb = 300 #int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
     ld_wind_cm = 0.6 # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
     block_mhc = True # remove all but the sentinel variant in the MHC region
-    save_clumped = False #True #whether to save the post-clumping version of the summary stats dataframe
+    save = True # whether to save summary stats dataframe post filtering
     filter_by_varexp = True # whether to filter by variance-explained threshold, converted from a p-value threshold
 
-    pval_thresholds = sorted([1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
+    pval_thresholds = [1]
+#    pval_thresholds = sorted([1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
 
     genmap_chr_list = get_genmap()
     
@@ -288,6 +289,15 @@ if __name__=="__main__":
                                             ld_wind_cm=ld_wind_cm)
                 pre_clumped = True # computational speed up to take advantage of clumped version for higher pval thresholds
                 
+            if save:
+                phen_str = phen.replace(' ','_').lower()
+                out_fname = f'{"clumped_" if ld_clumping else ""}gwas.{phen_str}.'
+                out_fname += f'ld_wind_cm_{ld_wind_cm}.' if ld_clumping else ''
+                out_fname += f'{"block_mhc." if block_mhc else ""}'
+                out_fname += f'pval_{pval_threshold}.{"varexp_thresh." if filter_by_varexp else ""}' if pval_threshold <1 else ''
+                out_fname += 'tsv.gz'
+                ss.to_csv(smiles_wd+'data/'+out_fname,sep='\t',index=False, compression='gzip')
+                
             
             
 ss_clumped.shape[0] #w/ speed up
@@ -297,4 +307,4 @@ ss_clumped[~ss_clumped.isin(ss_clumped1)].dropna()
 
 common = ss_clumped.merge(ss_clumped1,on=ss_clumped.columns.values.tolist())
 print(common)
-ss_clumped1[(~ss_clumped1.pval.isin(common.pval))&(~ss_clumped1.col2.isin(common.col2))]
+ss_clumped1[~ss_clumped1.pval.isin(common.pval)]
