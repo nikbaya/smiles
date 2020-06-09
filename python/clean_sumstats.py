@@ -77,11 +77,11 @@ for disease in diseases:
                   compression='gzip', delim_whitespace=True)
     n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
     n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
-    df = df.rename(columns={f'FRQ_U_{n_con}': 'EAF','CHR': 'chr', 
+    df = df.rename(columns={f'FRQ_U_{n_con}': 'eaf','CHR': 'chr', 
                             'P': 'pval', 'BP': 'pos','SE':'se'})    
     df['beta'] = np.log(df.OR)
     df['n'] = n_cas + n_con
-    df = df[['chr', 'pos', 'EAF', 'beta', 'se','pval', 'n']]
+    df = df[['chr', 'pos', 'eaf', 'beta', 'se','pval', 'n']]
     df.to_csv(f'{wd_data}/EUR.{disease}.gwas_info03_filtered.assoc.tsv.gz',
               compression='gzip', sep='\t', index=False)
     
@@ -90,8 +90,8 @@ for disease in diseases:
 ad = pd.read_csv(f'{wd_data}/AD_sumstats_Jansenetal_2019sept.txt.gz',sep='\t',
                  compression='gzip')
 ad = ad.rename(columns={'CHR':'chr', 'BP':'pos', 'BETA':'beta','SE':'se',
-                        'P':'pval','Nsum':'n'})
-ad = ad[['chr', 'pos', 'A1','A2','EAF','beta', 'se', 'pval', 'n']]
+                        'P':'pval','Nsum':'n','EAF':'eaf'})
+ad = ad[['chr', 'pos', 'A1','A2','eaf','beta', 'se', 'pval', 'n']]
 ad.to_csv(f'{wd_data}/AD_sumstats_Jansenetal_2019sept.tsv.gz',sep='\t',
           compression='gzip',index=False)
 
@@ -100,13 +100,13 @@ df = pd.read_csv(f'{wd_data}/daner_PGC_SCZ43_mds9.gz.hq2.gz',
                  compression='gzip', delim_whitespace=True)
 n_cas = int([x for x in df.columns.values if 'FRQ_A' in x][0].split('_')[2])
 n_con = int([x for x in df.columns.values if 'FRQ_U' in x][0].split('_')[2])
-df = df.rename(columns={f'FRQ_U_{n_con}':'EAF','CHR':'chr','P':'pval',
+df = df.rename(columns={f'FRQ_U_{n_con}':'eaf','CHR':'chr','P':'pval',
                         'BP':'pos','SE':'se'})
 # df['beta'] = -np.log10(df.OR) # REVERSE SIGN OF ODDS RATIO because daner
 # files use odds ratios that are in reference to A1, meaning: A1*OR = A2
-df['beta'] = np.log10(df.OR)
+df['beta'] = np.log(df.OR)
 df['n'] = n_cas + n_con
-df = df[['chr', 'A1','A2','EAF','beta', 'se', 'pval', 'n', 'pos']]
+df = df[['chr', 'A1','A2','eaf','beta', 'se', 'pval', 'n', 'pos']]
 df.to_csv(wd_data + 'daner_PGC_SCZ43_mds9.tsv.gz',
           compression='gzip', sep='\t', index=False)
 

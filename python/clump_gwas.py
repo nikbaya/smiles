@@ -16,7 +16,7 @@ import multiprocessing as mp
 from functools import partial
 from time import time
 
-smiles_wd = "/Users/nbaya/Documents/lab/smiles/"
+smiles_wd = "/Users/nbaya/Documents/lab/smiles"
 
 fname_dict = {
              '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
@@ -33,7 +33,7 @@ def get_genmap():
     r'''
     Gets genetic map and splits into list of dataframes for faster searching later.
     '''
-    genmap = pd.read_csv(f'{smiles_wd}data/genetic_map_combined_b37.txt.gz',
+    genmap = pd.read_csv(f'{smiles_wd}/data/genetic_map_combined_b37.txt.gz',
                          sep=' ', names=['chr','pos','rate','cm'], compression='gzip')
     
     genmap_chr_list = [genmap[genmap.chr==chr].sort_values(by='pos') for chr in range(1,23)]
@@ -76,7 +76,7 @@ def impute_pos(genmap_chr, cm):
         pos = a_pos + (b_pos-a_pos)*(cm-a_cm)/(b_cm-a_cm)
         return pos
 
-def pre_clump_qc(ss0, phen, filter_by_varexp):
+def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash):
     r'''
     Pre-clumping QC
     '''
@@ -140,6 +140,12 @@ def pre_clump_qc(ss0, phen, filter_by_varexp):
     if filter_by_varexp:
         ss0['var_exp'] = 2*ss0.raf*(1-ss0.raf)*ss0.rbeta**2
         
+    if use_ash:
+        phen_str = phen.replace(' ','_').lower()
+        ash = pd.read_csv(f'{smiles_wd}/data/ash.{phen_str}.tsv.gz', sep='\t',compression='gzip')
+        ss0 = ss0.merge(ash, on=['chr','pos'])
+        ss0['var_exp_ash'] = 2*ss0.PosteriorMean*(1-ss0.raf)*ss0.rbeta**2
+        
     return ss0
 
 def threshold(ss, pval_threshold, filter_by_varexp):
@@ -151,7 +157,7 @@ def threshold(ss, pval_threshold, filter_by_varexp):
     if filter_by_varexp and pval_threshold<1: # only filter when pval_threshold<1
         print('filtering by variance-explained, converting pval to varexp')
         phen_str = phen.replace(' ','_').lower()
-        clumped = pd.read_csv(f'{smiles_wd}data/clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_1e-05.tsv.gz',
+        clumped = pd.read_csv(f'{smiles_wd}/data/clumped_gwas.{phen_str}.ld_wind_cm_{ld_wind_cm}.{"block_mhc." if block_mhc else ""}pval_1e-05.tsv.gz',
                               compression='gzip', sep='\t')
         clumped.loc[clumped.pval==0, 'pval'] = 5e-324
         clumped = clumped[(clumped.raf!=0)&(clumped.raf!=1)]
@@ -172,7 +178,7 @@ def get_blocked_mhc(ss):
     r'''
     Removes all but the most significant variant in the MHC region
     '''
-    genes = pd.read_csv(smiles_wd+'data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
+    genes = pd.read_csv(f'{smiles_wd}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
     mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
     start = min(mhc_region.start)
     stop = max(mhc_region.stop)
@@ -185,7 +191,7 @@ def get_blocked_mhc(ss):
     
     return ss
 
-def get_clumped_ss(ss, ld_wind_cm):
+def get_clumped_ss(ss, ld_wind_cm, use_ash):
     r'''
     Performs clumping on sumstats dataframe `ss`. Iterates through most 
     significant variants, removing all but the sentinel (most significant) variant 
@@ -198,7 +204,7 @@ def get_clumped_ss(ss, ld_wind_cm):
     print(f'Getting loci for LD window={ld_wind_cm}cM ...\nPre-filter # of variants (pval={pval_threshold}) = {ss.shape[0]}')
     for ss_tmp in [ss_noncoding, ss_coding]:
         pool = mp.Pool(mp.cpu_count()-1)
-        func = partial(clump_chrom, ss_tmp, ld_wind_cm)
+        func = partial(clump_chrom, ss_tmp, ld_wind_cm, use_ash)
         ss_keep_list = pool.map(func, range(1,23))
         pool.close()
         ss_keep = pd.concat(ss_keep_list)
@@ -209,7 +215,7 @@ def get_clumped_ss(ss, ld_wind_cm):
 
     return ss_final
   
-def clump_chrom(ss_tmp, ld_wind_cm, chrom):
+def clump_chrom(ss_tmp, ld_wind_cm, use_ash, chrom):
     r'''
     Clumps variants on a single chromosome `chrom` for a given sumstats 
     dataframe `ss_tmp`
@@ -218,7 +224,8 @@ def clump_chrom(ss_tmp, ld_wind_cm, chrom):
     genmap_chr = genmap_chr_list[chrom-1]
     ss_tmp = ss_tmp[ss_tmp.chr==chrom]
     while len(ss_tmp)>0:
-        chr, pos = ss_tmp[ss_tmp.pval==ss_tmp.pval.min()][['chr','pos']].values[0] # sentinel variant is most significant non-clumped variant
+        idx = ss_tmp.var_exp_ash==ss_tmp.var_exp_ash.max() if use_ash else ss_tmp.pval==ss_tmp.pval.min()
+        chr, pos = ss_tmp[idx][['chr','pos']].values[0] # sentinel variant is most significant non-clumped variant
         if pos < genmap_chr.pos.min():
             a_pos = 1 # start of window around sentinel
             b_pos = impute_pos(genmap_chr=genmap_chr, cm=ld_wind_cm/2) # end of window around sentinel
@@ -236,17 +243,16 @@ def clump_chrom(ss_tmp, ld_wind_cm, chrom):
     return ss_keep
 
 if __name__=="__main__":
-    ld_clumping = False #only show the top hit (variant with lowest p-value) in a window of size `ld_wind_kb` kb or `ld_wind_cm` cm
-    get_top_loci = False # only show top {n_top_loci} in the plot, and color by loci
-    n_top_loci = int(1e10) if get_top_loci else None
+    ld_clumping = True #only show the top hit (variant with lowest p-value) in a window of size `ld_wind_kb` kb or `ld_wind_cm` cm
 #    ld_wind_kb = 300 #int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
     ld_wind_cm = 0.6 # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
     block_mhc = True # remove all but the sentinel variant in the MHC region
-    save = True # whether to save summary stats dataframe post filtering
+    save = False # whether to save summary stats dataframe post filtering
     filter_by_varexp = True # whether to filter by variance-explained threshold, converted from a p-value threshold
+    use_ash = True # if True, use ash posterior mean effect sizes to get var_exp and clump on var_exp instead of p-val
 
-    pval_thresholds = [1]
-#    pval_thresholds = sorted([1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
+#    pval_thresholds = [1]
+    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
 
     genmap_chr_list = get_genmap()
     
@@ -254,29 +260,28 @@ if __name__=="__main__":
         print(f'Starting phen {phen}, using file {fname}')
         print(f'LD clumping: {ld_clumping}')
         print(f'Block MHC: {block_mhc}')
-        if get_top_loci:
-            print(f'Getting top {n_top_loci} loci')
-        if ld_clumping or get_top_loci:
+        if ld_clumping:
 #            print(f'LD window: {ld_wind_kb/1e3}mb, {ld_wind_kb}kb')
             print(f'LD window: {ld_wind_cm}cM')
         
-        ss0 = pd.read_csv(smiles_wd+'data/'+fname, sep='\t',compression='gzip')
+        ss0 = pd.read_csv(f'{smiles_wd}/data/{fname}', sep='\t',compression='gzip')
         
         ss1 = pre_clump_qc(ss0=ss0,
                            phen=phen,
-                           filter_by_varexp=filter_by_varexp)
+                           filter_by_varexp=filter_by_varexp,
+                           use_ash=use_ash)
 
         ss1 = get_blocked_mhc(ss1) if block_mhc else ss1
         
-#        ss1 = ss1.sort_values(by=['pval','chr','pos'])
-        ss2 = ss1.drop_duplicates(subset='pval',keep='first')
-        ss2 = ss2[~ss2.coding]
+##        ss1 = ss1.sort_values(by=['pval','chr','pos'])
+#        ss2 = ss1.drop_duplicates(subset='pval',keep='first')
+#        ss2 = ss2[~ss2.coding]
         
         ss_clumped = None
         pre_clumped = False
         for pval_threshold in pval_thresholds:
             if not pre_clumped:
-                ss = threshold(ss=ss2, 
+                ss = threshold(ss=ss1, 
                                pval_threshold=pval_threshold, 
                                filter_by_varexp=filter_by_varexp)
             
@@ -299,12 +304,3 @@ if __name__=="__main__":
                 ss.to_csv(smiles_wd+'data/'+out_fname,sep='\t',index=False, compression='gzip')
                 
             
-            
-ss_clumped.shape[0] #w/ speed up
-ss_clumped1.shape[0] # independent
-
-ss_clumped[~ss_clumped.isin(ss_clumped1)].dropna()
-
-common = ss_clumped.merge(ss_clumped1,on=ss_clumped.columns.values.tolist())
-print(common)
-ss_clumped1[~ss_clumped1.pval.isin(common.pval)]
