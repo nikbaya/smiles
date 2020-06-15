@@ -10,16 +10,15 @@ Prune GWAS sumstats for ashR
 
 import pandas as pd
 from time import time
-import multiprocessing as mp
-from functools import partial
+
 
 smiles_wd = "/Users/nbaya/Documents/lab/smiles"
 
 fname_dict = {
-#             '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
-#             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI', # UKB
-#             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
-#             'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
+             '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
+             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI', # UKB
+             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
+             'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
              'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
              'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
              'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
@@ -30,6 +29,8 @@ def pre_prune_qc(ss0, phen):
     r'''
     Pre-pruning QC (does not include MAF filter that pre_clump_qc has)
     '''
+    
+    assert 'se' in ss0.columns.values
     if 'chr' not in ss0.columns.values:
         ss0['chr'] = ss0.variant.str.split(':',n=1,expand=True).iloc[:,0]
     ss0 = ss0[ss0.chr.isin([str(x) for x in range(1,23)])] # only need to go up to chr 22 because genetic map only covers 22 chr
@@ -112,7 +113,7 @@ def get_pruned_ss(ss, ld_wind_kb):
     ss[f'ld_index_{ld_wind_kb}'] = ss.chr.astype(str)+'-'+(ss.pos/(ld_wind_kb*1e3)).astype(int).astype(str)
     ss = ss.drop_duplicates(subset=f'ld_index_{ld_wind_kb}',keep='first') # if dataframe is sorted by position, this keeps the first SNP in terms of base pair position
     ss = ss.drop(columns=f'ld_index_{ld_wind_kb}')
-    print(f'Time to clump: {round((time()-start)/60,3)} min')
+    print(f'Time to prune: {round((time()-start)/60,3)} min')
     print(f'Post-filter # of variants (LD window={ld_wind_kb}kb): {ss.shape[0]}\n')
     return ss    
 
@@ -138,7 +139,7 @@ if __name__=="__main__":
         if save_unpruned:
             phen_str = phen.replace(' ','_').lower()
             unpruned_fname = f'gwas.{phen_str}.{"block_mhc." if block_mhc else ""}tsv.gz'
-            ss2[['chr','pos','beta','pval']].to_csv(f'{smiles_wd}/data/{unpruned_fname}',compression='gzip',sep='\t', index=False)
+            ss2[['chr','pos','beta','se']].to_csv(f'{smiles_wd}/data/{unpruned_fname}',compression='gzip',sep='\t', index=False)
 
 
         ss = get_pruned_ss(ss=ss2,
@@ -147,4 +148,4 @@ if __name__=="__main__":
         if save:
             phen_str = phen.replace(' ','_').lower()
             pruned_fname = f'pruned_gwas.{phen_str}.ld_wind_kb_{ld_wind_kb}.{"block_mhc." if block_mhc else ""}tsv.gz'
-            ss.to_csv(f'{smiles_wd}/data/{pruned_fname}',compression='gzip',sep='\t', index=False)
+            ss[['chr','pos','beta','se']].to_csv(f'{smiles_wd}/data/{pruned_fname}',compression='gzip',sep='\t', index=False)

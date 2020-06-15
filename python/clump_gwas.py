@@ -107,7 +107,7 @@ def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash):
             ss0['ref'] = ss0.variant.str.split(':',n=3,expand=True).iloc[:,2] #take the first allele listed in the variant ID string
             ss0.loc[ss0.minor_allele!=ss0.ref,'alt_af'] = ss0.loc[ss0.minor_allele!=ss0.ref,'minor_AF']
             ss0.loc[ss0.minor_allele==ss0.ref,'alt_af'] = 1-ss0.loc[ss0.minor_allele==ss0.ref,'minor_AF']
-            ss0 = ss0.rename(columns={'alt_af':'EAF'}) # this is true for UKB, which is the only dataset without EAF
+            ss0 = ss0.rename(columns={'alt_af':'eaf'}) # this is true for UKB, which is the only dataset without EAF
         else:
             assert False, 'insufficient information to calculate risk allele frequency'
     
@@ -119,18 +119,18 @@ def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash):
     
     # remove SNPs with EAF=NA
     snp_ct_before = ss0.shape[0]
-    ss0 = ss0.dropna(axis=0, subset=['EAF'])
+    ss0 = ss0.dropna(axis=0, subset=['eaf'])
     snp_ct_after = ss0.shape[0]
     print(f'# of SNPs removed with missing EAF: {snp_ct_before-snp_ct_after}')
           
     # remove invariant SNPs (MAF=0)
     snp_ct_before = ss0.shape[0]
-    ss0 = ss0[(ss0.EAF>0) & (ss0.EAF<1)]
+    ss0 = ss0[(ss0.eaf>0) & (ss0.eaf<1)]
     snp_ct_after = ss0.shape[0]
     print(f'# of SNPs removed with MAF=0: {snp_ct_before-snp_ct_after}\n')
     
-    ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'EAF']
-    ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'EAF']
+    ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'eaf']
+    ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'eaf']
 
     ss0.loc[ss0.index,'rbeta'] = np.abs(ss0['beta']) #beta is transformed to risk (or trait-increasing) allele effect size
     
@@ -163,7 +163,7 @@ def threshold(ss, pval_threshold, filter_by_varexp):
         clumped = clumped[(clumped.raf!=0)&(clumped.raf!=1)]
         clumped['var_exp'] = 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
         clumped['n_hat'] = stats.chi2.isf(q=clumped.pval,df=1)/clumped.var_exp
-        n_hat_mean = clumped.n_hat.mean()
+        n_hat_mean = clumped.n_hat.mean() # also called n_bar
         varexp_thresh = stats.chi2.isf(q=pval_threshold,df=1)/n_hat_mean
         print(f'estimated n_eff: {n_hat_mean}\nvarexp thresh: {varexp_thresh}')
         ss = ss[ss.var_exp>varexp_thresh].reset_index(drop=True)
@@ -203,10 +203,11 @@ def get_clumped_ss(ss, ld_wind_cm, use_ash):
     ss_final = None
     print(f'Getting loci for LD window={ld_wind_cm}cM ...\nPre-filter # of variants (pval={pval_threshold}) = {ss.shape[0]}')
     for ss_tmp in [ss_noncoding, ss_coding]:
-        pool = mp.Pool(mp.cpu_count()-1)
-        func = partial(clump_chrom, ss_tmp, ld_wind_cm, use_ash)
-        ss_keep_list = pool.map(func, range(1,23))
-        pool.close()
+#        pool = mp.Pool(mp.cpu_count()-1)
+#        func = partial(clump_chrom, ss_tmp, ld_wind_cm, use_ash)
+#        ss_keep_list = pool.map(func, range(1,23))
+#        pool.close()
+        ss_keep_list = [clump_chrom(ss_tmp=ss_tmp,ld_wind_cm=ld_wind_cm,use_ash=True,chrom=chrom) for chrom in range(1,23)]
         ss_keep = pd.concat(ss_keep_list)
         ss_final = ss_keep if ss_final is None else ss_final.append(ss_keep, sort=False)
         
@@ -243,16 +244,17 @@ def clump_chrom(ss_tmp, ld_wind_cm, use_ash, chrom):
     return ss_keep
 
 if __name__=="__main__":
-    ld_clumping = True #only show the top hit (variant with lowest p-value) in a window of size `ld_wind_kb` kb or `ld_wind_cm` cm
-#    ld_wind_kb = 300 #int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
-    ld_wind_cm = 0.6 # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
-    block_mhc = True # remove all but the sentinel variant in the MHC region
-    save = False # whether to save summary stats dataframe post filtering
-    filter_by_varexp = True # whether to filter by variance-explained threshold, converted from a p-value threshold
-    use_ash = True # if True, use ash posterior mean effect sizes to get var_exp and clump on var_exp instead of p-val
+    ld_clumping = True          #only show the top hit (variant with lowest p-value) in a window of size `ld_wind_kb` kb or `ld_wind_cm` cm
+#    ld_wind_kb = 300           #int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
+    ld_wind_cm = 0.6            # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
+    block_mhc = True            # remove all but the sentinel variant in the MHC region
+    save = True                 # whether to save summary stats dataframe post filtering
+    filter_by_varexp = False    # whether to filter by variance-explained threshold, converted from a p-value threshold
+    use_ash = True              # if True, use ash posterior mean effect sizes to get var_exp and clump on var_exp instead of p-val
 
 #    pval_thresholds = [1]
-    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
+    pval_thresholds = [1e-5, 1e-6, 1e-7, 1e-8]
+#    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
 
     genmap_chr_list = get_genmap()
     
@@ -273,6 +275,7 @@ if __name__=="__main__":
 
         ss1 = get_blocked_mhc(ss1) if block_mhc else ss1
         
+        ## Use to check bug 
 ##        ss1 = ss1.sort_values(by=['pval','chr','pos'])
 #        ss2 = ss1.drop_duplicates(subset='pval',keep='first')
 #        ss2 = ss2[~ss2.coding]
@@ -280,6 +283,7 @@ if __name__=="__main__":
         ss_clumped = None
         pre_clumped = False
         for pval_threshold in pval_thresholds:
+            # TODO: Account for case where ld_clumping=False and pre_clumped=False
             if not pre_clumped:
                 ss = threshold(ss=ss1, 
                                pval_threshold=pval_threshold, 
@@ -290,17 +294,20 @@ if __name__=="__main__":
                                        pval_threshold=pval_threshold, 
                                        filter_by_varexp=filter_by_varexp)
             if ld_clumping and not pre_clumped:
-                ss_clumped1 = get_clumped_ss(ss=ss,
-                                            ld_wind_cm=ld_wind_cm)
+                ss_clumped = get_clumped_ss(ss=ss,
+                                            ld_wind_cm=ld_wind_cm,
+                                            use_ash=use_ash)
                 pre_clumped = True # computational speed up to take advantage of clumped version for higher pval thresholds
                 
             if save:
                 phen_str = phen.replace(' ','_').lower()
-                out_fname = f'{"clumped_" if ld_clumping else ""}gwas.{phen_str}.'
+                out_fname = f'{"clumped_" if ld_clumping else ""}'
+                out_fname += "ash." if use_ash else "gwas."
+                out_fname += f'{phen_str}.'
                 out_fname += f'ld_wind_cm_{ld_wind_cm}.' if ld_clumping else ''
                 out_fname += f'{"block_mhc." if block_mhc else ""}'
                 out_fname += f'pval_{pval_threshold}.{"varexp_thresh." if filter_by_varexp else ""}' if pval_threshold <1 else ''
                 out_fname += 'tsv.gz'
-                ss.to_csv(smiles_wd+'data/'+out_fname,sep='\t',index=False, compression='gzip')
+                ss_clumped.to_csv(f'{smiles_wd}/data/'+out_fname,sep='\t',index=False, compression='gzip')
                 
             

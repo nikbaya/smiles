@@ -4,23 +4,30 @@ data_wd = '/Users/nbaya/Documents/lab/smiles/data'
 
 phenos = c(
   # 'standing_height',
-  'bmi',
-  't2d_bmiadj',
+  # 'bmi',
+  # 't2d_bmiadj',
   'ibd',
   'cd',
   'uc',
   'scz',
-  'ad')
+  'ad'
+  )
 ld_wind_kb = 500
+
+read_ss <- function(fname) {
+  df = read.csv(file = paste0(data_wd,'/',fname), sep = '\t')
+  stopifnot('se' %in% colnames(df))
+  return(df)
+}
 
 for ( pheno in phenos ) {
   cat(paste0('Running ash for ',pheno,'\n'))
   cat(paste0('...Reading in genome-wide file...\n'))
   genomewide_fname = paste0('gwas.',pheno,'.tsv.gz')
-  genome.wide = read.csv(file = paste0(data_wd,'/',genomewide_fname), sep = '\t')
+  genome.wide = read_ss(fname=genomewide_fname)
   cat(paste0('...Reading in genome-wide file complete...\n'))
   pruned_fname = paste0('pruned_gwas.',pheno,'.ld_wind_kb_',ld_wind_kb,'.tsv.gz')
-  ld.pruned = read.csv(file = paste0(data_wd,'/',pruned_fname), sep = '\t')
+  ld.pruned = read_ss(fname=pruned_fname)
   
   ld.pruned.ash <- ash(ld.pruned$beta, ld.pruned$se, mixcompdist = "halfuniform")
   ld.pruned.g <- get_fitted_g(ld.pruned.ash)
@@ -29,7 +36,7 @@ for ( pheno in phenos ) {
 
   genome.wide.ash = NULL
   
-  for (chrom in seq(22,1)) {
+  for (chrom in seq(1,22)) {
     df = genome.wide[which(genome.wide$chr==chrom),]
     df.ash <- ash(df$beta, df$se, mixcompdist = "halfuniform",
                            g=ld.pruned.g, fixg=TRUE)
@@ -42,8 +49,8 @@ for ( pheno in phenos ) {
     cat(paste('...chrom',chrom,'complete...\n'))
   }
   cat(paste('All chromosomes complete for',pheno,'\n'))
-  ash <- cbind(genome.wide[,c('chr','pos','eaf')], genome.wide.ash[,c('PosteriorMean','PosteriorSD')])
+  ash <- cbind(genome.wide[,c('chr','pos')], genome.wide.ash[,c('PosteriorMean','PosteriorSD')])
   fname_out = gzfile(paste0(data_wd,'/ash.',pheno,'.tsv.gz'))
-  write.table(x = ash, file = fname_out, sep='\t')
+  write.table(x = ash, file = fname_out, sep='\t', quote=F)
   
 }
