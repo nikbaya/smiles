@@ -106,8 +106,8 @@ df = df.rename(columns={f'FRQ_U_{n_con}':'eaf','CHR':'chr','P':'pval',
 # files use odds ratios that are in reference to A1, meaning: A1*OR = A2
 df['beta'] = np.log(df.OR)
 df['n'] = n_cas + n_con
-df = df[['chr', 'A1','A2','eaf','beta', 'se', 'pval', 'n', 'pos']]
-df.to_csv(wd_data + 'daner_PGC_SCZ43_mds9.tsv.gz',
+df = df[['chr', 'pos','A1','A2','eaf','beta', 'se', 'pval', 'n']]
+df.to_csv(f'{wd_data}/daner_PGC_SCZ43_mds9.tsv.gz',
           compression='gzip', sep='\t', index=False)
 
 
@@ -287,6 +287,8 @@ plt.plot(df[df.P < 5e-8].RAF_ben, np.abs(df[df.P < 5e-8].beta_ben), '.')
 ms =  pd.read_csv('/Users/nbaya/Documents/lab/smiles/data/multiplesclerosis.beecham2013.b37.tsv.gz',
                   compression='gzip',sep='\t')
 
+
+
 ## Read in MICAD.EUR.ExA.Consortium.PublicRelease.310517.txt.gz from
 ## Citation: Data on coronary artery disease / myocardial infarction have been 
 ##           contributed by the Myocardial Infarction Genetics and CARDIoGRAM 
@@ -294,8 +296,8 @@ ms =  pd.read_csv('/Users/nbaya/Documents/lab/smiles/data/multiplesclerosis.beec
 mi = pd.read_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.txt.gz',
                  delim_whitespace=True, compression='gzip')
 mi.loc[mi.log_OR>0,'beta'] = np.log(mi.loc[mi.log_OR>0,'log_OR']) # all SNPs with log_OR=0 have a p-value>=0.9958, so it's okay to exlude these
-mi = mi.rename(columns={'effect_allele_freq':'EAF','Pvalue':'pval','N_samples':'n'})
-mi = mi[['chr', 'pos', 'effect_allele','other_allele', 'n','EAF','beta', 'pval']]
+mi = mi.rename(columns={'effect_allele_freq':'eaf','Pvalue':'pval','N_samples':'n'})
+mi = mi[['chr', 'pos', 'effect_allele','other_allele', 'n','eaf','beta', 'pval']]
 mi_tmp = mi.dropna(axis=0)
 print(f'Dropped {mi.shape[0]-mi_tmp.shape[0]} rows for having NA values')
 for col in mi.columns.values:
@@ -313,12 +315,13 @@ mi.to_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.tsv.gz',
 #   76,192 European ancestry cases, 
 #   63,082 European ancestry controls
 
-bc = pd.read_csv(wd_data+'breastcancer.michailidou2017.b37.tsv.gz',
+bc = pd.read_csv(f'{wd_data}/breastcancer.michailidou2017.b37.tsv.gz',
                  sep='\t', compression='gzip', low_memory=False)
 bc = bc.rename(columns={'chromosome':'chr','base_pair_location':'pos',
-                        'effect_allele_frequency':'EAF', 'p_value':'pval'})
-bc = bc[['chr', 'pos', 'effect_allele','other_allele','EAF','beta', 'pval']]
-cols_to_filter = ['chr', 'pos', 'EAF','beta', 'pval'] #columns which are necessary for downstream analysis and thus must be filtered for NAs
+                        'effect_allele_frequency':'eaf', 'p_value':'pval',
+                        'standard_error':'se'})
+cols_to_filter = ['chr','pos','eaf','beta','se','pval'] #columns which are necessary for downstream analysis and thus must be filtered for NAs
+bc = bc[cols_to_filter]
 bc_tmp = bc.dropna(axis=0, subset=cols_to_filter)
 print(f'Dropped {bc.shape[0]-bc_tmp.shape[0]} rows for having NA values')
 for col in cols_to_filter: 

@@ -15,14 +15,16 @@ from time import time
 smiles_wd = "/Users/nbaya/Documents/lab/smiles"
 
 fname_dict = {
-             '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
-             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI', # UKB
-             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
-             'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
-             'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
-             'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
-             'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
-             'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD', #Alzheimer's disease meta-analysis
+#             '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
+#             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI', # UKB
+#             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
+#             'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
+#             'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
+#             'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
+#             'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
+#             'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD', #Alzheimer's disease meta-analysis
+             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
+             'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.coding.tsv.gz': 'MICAD'
              }
 
 def pre_prune_qc(ss0, phen):
@@ -33,7 +35,11 @@ def pre_prune_qc(ss0, phen):
     assert 'se' in ss0.columns.values
     if 'chr' not in ss0.columns.values:
         ss0['chr'] = ss0.variant.str.split(':',n=1,expand=True).iloc[:,0]
+    else:
+        ss0['chr'] = ss0['chr'].astype(str)
+    print(f'Filtering to autosomes...(variant qt: {ss0.shape[0]})')
     ss0 = ss0[ss0.chr.isin([str(x) for x in range(1,23)])] # only need to go up to chr 22 because genetic map only covers 22 chr
+    print(f'Filtered to autosomes...(variant qt: {ss0.shape[0]})')
     ss0['chr'] = ss0['chr'].astype(int) # previous filtering step is necessary for converting to int for cases of chr='X' or 'MT'
     
     if 'pos' not in ss0.columns.values:
@@ -90,7 +96,7 @@ def get_blocked_mhc(ss):
     r'''
     Removes all but the most significant variant in the MHC region
     '''
-    genes = pd.read_csv(smiles_wd+'data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
+    genes = pd.read_csv(f'{smiles_wd}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
     mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
     start = min(mhc_region.start)
     stop = max(mhc_region.stop)
@@ -120,7 +126,7 @@ def get_pruned_ss(ss, ld_wind_kb):
 
 if __name__=="__main__":
     ld_wind_kb = 500 # default: 500 kb
-    block_mhc = False
+    block_mhc = True
     save = True
     save_unpruned = True
     
