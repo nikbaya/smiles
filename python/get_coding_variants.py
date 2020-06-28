@@ -45,8 +45,8 @@ fname = 'EUR.UC.gwas_info03_filtered.assoc.tsv.gz'
 fname = 'daner_PGC_SCZ43_mds9.tsv.gz'
 fname = 'Mahajan.NatGenet2018b.T2D.European.tsv.gz'
 fname = 'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz'
-fname = 'MICAD.EUR.ExA.Consortium.PublicRelease.310517.tsv.gz'
 fname = 'breastcancer.michailidou2017.b37.cleaned.tsv.gz'
+fname = 'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.tsv.gz'
 fname = 'AD_sumstats_Jansenetal_2019sept.tsv.gz'
 #fname = '20544_2.gwas.imputed_v3.both_sexes.tsv.bgz'
 fnames = ['EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
@@ -55,6 +55,16 @@ fnames = ['EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
           'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
           'daner_PGC_SCZ43_mds9.tsv.gz',
           'AD_sumstats_Jansenetal_2019sept.tsv.gz']
+fnames = ['breastcancer.michailidou2017.b37.cleaned.tsv.gz',
+          'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.tsv.gz']
+fname = '30780_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
+fnames = ['30000_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
+         '30010_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
+         '30880_irnt.gwas.imputed_v3.both_sexes.tsv.bgz']
+fnames = ['4080_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
+          '4079_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
+          '30870_irnt.gwas.imputed_v3.both_sexes.tsv.bgz']
+fname = '30760_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
 for fname in fnames:
     ss0 = hl.import_table(f'{wd_data}/{fname}',impute=True,force=True,types={'chr':hl.tstr})
     if 'variant' in list(ss0.row): 
@@ -67,7 +77,12 @@ for fname in fnames:
     elif 'chr' in list(ss0.row) and 'pos' in list(ss0.row):
         ss = ss0.annotate(locus = hl.locus(contig=ss0.chr,pos=ss0.pos,reference_genome='GRCh37'))
     ss = ss.annotate(coding=hl.is_defined(t2[ss.locus]))
-    ss = ss.drop('locus')
+    fields_to_drop = []
+    fields = ['locus','AC','ytx','tstat', 'A1','A2', 'effect_allele','other_allele']
+    for field in fields:
+        if field in ss.row:
+            fields_to_drop.append(field)
+    ss = ss.drop(*fields_to_drop)
     ss.export(f"{wd_data}/{fname.split('.tsv')[0]}.coding.tsv{fname.split('.tsv')[1]}")
 
 

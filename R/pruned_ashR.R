@@ -8,13 +8,23 @@ phenos = c(
   # 't2d_bmiadj',
   # 'ibd',
   # 'cd',
-  'uc'
+  # 'uc',
   # 'scz',
   # 'ad'
+  # 'breast_cancer',
+  # 'micad',
+  # 'ldl',
+  # 'wbc_count',
+  # 'rbc_count',
+  # 'urate'
+  'systolic_bp'
+  # 'diastolic_bp',
+  # 'triglycerides',
+  # 'bp
   )
 
 ld_wind_kb = 500
-block_mhc = F
+block_mhc = T
 mixcompdist = "halfnormal"
 
 read_ss <- function(fname) {
@@ -26,7 +36,13 @@ read_ss <- function(fname) {
 for ( pheno in phenos ) {
   cat(paste0('Running ash for ',pheno,'\n'))
   cat(paste0('...Reading in genome-wide file...\n'))
-  genomewide_fname = paste0('gwas.',pheno,'.tsv.gz')
+  if (block_mhc) {
+    genomewide_fname = paste0('gwas.',pheno,'.block_mhc.tsv.gz')  
+  }
+  else {
+    genomewide_fname = paste0('gwas.',pheno,'.tsv.gz')  
+  }
+  
   genome.wide = read_ss(fname=genomewide_fname)
   cat(paste0('...Reading in genome-wide file complete...\n'))
   if (block_mhc) {
@@ -42,7 +58,8 @@ for ( pheno in phenos ) {
   ld.pruned.g <- get_fitted_g(ld.pruned.ash)
   
   cat(paste('...Starting ash on genome-wide file...\n'))
-  cat(paste('mixcompdist = ',mixcompdist,'\n'))
+  cat(paste('mixcompdist = ',mixcompdist,', block_mhc = ',block_mhc, '\n'))
+  
 
   genome.wide.ash = NULL
   

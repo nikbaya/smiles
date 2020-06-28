@@ -9,6 +9,7 @@ Originally part of plot_smiles.py
 @author: nbaya
 """
 
+import os
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
@@ -17,19 +18,30 @@ from functools import partial
 from time import time
 import matplotlib.pyplot as plt
 
-smiles_wd = "/Users/nbaya/Documents/lab/smiles"
-
+if os.path.isdir('/Users/nbaya/'): # if working locally
+    smiles_dir = "/Users/nbaya/Documents/lab/smiles"
+else:
+    smiles_dir = "/stanley/genetics/users/nbaya/smiles"
+    
 fname_dict = {
 #             '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
 #             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI', # UKB
 #             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
 #             'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
 #             'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
-             'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
+#             'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
 #             'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
 #             'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD', #Alzheimer's disease meta-analysis
-#             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
-#             'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.coding.tsv.gz': 'MICAD'
+             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
+#             'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.coding.tsv.gz': 'MICAD',
+#             '30780_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'LDL',
+#             '30000_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'WBC count',
+#             '30010_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'RBC count',
+#             '30880_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Urate'
+             '4080_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Systolic BP',
+             '4079_irnt.gwas.imputed_v3.both_sexes.tsv.bgz':'Diastolic BP',
+             '30870_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Triglycerides',
+             '30760_irnt.gwas.imputed_v3.both_sexes.tsv.bgz': 'HDL'
              }
 
 def get_phen_str(phen):
@@ -39,7 +51,7 @@ def get_genmap():
     r'''
     Gets genetic map and splits into list of dataframes for faster searching later.
     '''
-    genmap = pd.read_csv(f'{smiles_wd}/data/genetic_map_combined_b37.txt.gz',
+    genmap = pd.read_csv(f'{smiles_dir}/data/genetic_map_combined_b37.txt.gz',
                          sep=' ', names=['chr','pos','rate','cm'], compression='gzip')
     
     genmap_chr_list = [genmap[genmap.chr==chr].sort_values(by='pos') for chr in range(1,23)]
@@ -141,23 +153,29 @@ def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash, block_mhc, mixcompdist):
     snp_ct_after = ss0.shape[0]
     print(f'# of SNPs removed with MAF=0: {snp_ct_before-snp_ct_after}\n')
     
-    ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'eaf']
-    ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'eaf']
-
-    ss0.loc[ss0.index,'rbeta'] = np.abs(ss0['beta']) #beta is transformed to risk (or trait-increasing) allele effect size
-    
     if 'low_confidence_variant' in ss0.columns.values:
         snp_ct_before = ss0.shape[0]
         ss0 = ss0[~ss0.low_confidence_variant]
         snp_ct_after = ss0.shape[0]
         print(f'# of low-confidence SNPs removed: {snp_ct_before-snp_ct_after}')
               
+    if phen=='Breast cancer':
+        se_threshold = 1000
+        snp_ct_before = ss0.shape[0]
+        ss0 = ss0[ss0.se<se_threshold]
+        print(f'NOTE: Removed {snp_ct_before-ss0.shape[0]} SNPs in "{phen}" with standard error > {se_threshold}')
+        
+    ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'eaf']
+    ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'eaf']
+
+    ss0.loc[ss0.index,'rbeta'] = np.abs(ss0['beta']) #beta is transformed to risk (or trait-increasing) allele effect size
+    
     if filter_by_varexp or use_ash: # do if use_ash=True because we may wish to compare var_exp vs var_exp_ash
         ss0['var_exp'] = 2*ss0.raf*(1-ss0.raf)*ss0.rbeta**2
         
     if use_ash:
         phen_str = get_phen_str(phen=phen)
-        ash = pd.read_csv(f'{smiles_wd}/data/ash.{phen_str}.{f"{mixcompdist}." if mixcompdist!=None else ""}{"block_mhc." if block_mhc else ""}tsv.gz', 
+        ash = pd.read_csv(f'{smiles_dir}/data/ash.{phen_str}.{f"{mixcompdist}." if mixcompdist!=None else ""}{"block_mhc." if block_mhc else ""}tsv.gz', 
                           sep='\t',compression='gzip')
         ss0 = ss0.merge(ash, on=['chr','pos'])
         ss0['var_exp_ash'] = 2*ss0.raf*(1-ss0.raf)*ss0.PosteriorMean**2
@@ -172,8 +190,7 @@ def threshold(phen, ss, pval_threshold, filter_by_varexp, use_ash=False):
     print(f'pval threshold: {pval_threshold}')
     if filter_by_varexp and pval_threshold<1: # only filter when pval_threshold<1
         print('filtering by variance-explained, converting pval to varexp')
-        n_hat_mean = get_n_hat_mean(phen=phen, use_ash=use_ash)
-        varexp_thresh = stats.chi2.isf(q=pval_threshold,df=1)/n_hat_mean
+        varexp_thresh, n_hat_mean = get_varexp_threshold(phen=phen, pval_threshold=pval_threshold, return_n_hat_mean=True)
         print(f'estimated n_eff: {n_hat_mean}\nvarexp thresh: {varexp_thresh}')
         ss = ss[ss.var_exp>varexp_thresh].reset_index(drop=True)
     elif not filter_by_varexp and pval_threshold<1:        
@@ -183,32 +200,41 @@ def threshold(phen, ss, pval_threshold, filter_by_varexp, use_ash=False):
     print(f'Post-thresholding num of variants: {ss.shape[0]}\n')    
     return ss
 
-def get_n_hat_mean(phen, use_ash, pval = 1e-5):
+def get_n_hat_mean(phen, pval = 1e-5):
     r'''
     `phen`: phenotype
     `pval`: p-val thresh of clumped file to use for estimating n_hat_mean    
     '''
     phen_str = get_phen_str(phen=phen)
+    use_ash = False
     clumped_fname = f'clumped_{"ash" if use_ash else "gwas"}.{phen_str}.ld_wind_cm_{ld_wind_cm}.block_mhc.{f"pval_{pval}." if pval < 1 else ""}tsv.gz'
-    clumped = pd.read_csv(f'{smiles_wd}/data/{clumped_fname}',compression='gzip', sep='\t')
-    if use_ash:
-        clumped['pval_ash'] = 2*stats.norm.cdf(-abs(clumped.PosteriorMean/clumped.PosteriorSD)) # 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
-    clumped.loc[clumped[f'pval{"_ash" if use_ash else ""}']==0, f'pval{"_ash" if use_ash else ""}'] = 5e-324
-#    clumped.loc[clumped['pval']==0, 'pval'] = 5e-324
+    clumped = pd.read_csv(f'{smiles_dir}/data/{clumped_fname}',compression='gzip', sep='\t')
+#    if use_ash:
+#        clumped['pval_ash'] = 2*stats.norm.cdf(-abs(clumped.PosteriorMean/clumped.PosteriorSD)) # 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
+#    clumped.loc[clumped[f'pval{"_ash" if use_ash else ""}']==0, f'pval{"_ash" if use_ash else ""}'] = 5e-324
+    clumped.loc[clumped['pval']==0, 'pval'] = 5e-324
     clumped = clumped[(clumped.raf!=0)&(clumped.raf!=1)]
     clumped['var_exp'] = 2*clumped.raf*(1-clumped.raf)*clumped.rbeta**2
     clumped = clumped[clumped[f'var_exp{"_ash" if use_ash else ""}']!=0] # remove variants with varexp=0 to avoid infinite n_hat
-    clumped['n_hat'] = stats.chi2.isf(q=clumped[f'pval{"_ash" if use_ash else ""}'],df=1)/clumped[f'var_exp{"_ash" if use_ash else ""}']
-#    clumped['n_hat'] = stats.chi2.isf(q=clumped['pval'],df=1)/clumped[f'var_exp{"_ash" if use_ash else ""}']
+#    clumped['n_hat'] = stats.chi2.isf(q=clumped[f'pval{"_ash" if use_ash else ""}'],df=1)/clumped[f'var_exp{"_ash" if use_ash else ""}']
+    clumped['n_hat'] = stats.chi2.isf(q=clumped['pval'],df=1)/clumped[f'var_exp{"_ash" if use_ash else ""}']
     n_hat_mean = clumped.n_hat.mean() # also called n_bar
     
     return n_hat_mean
+
+def get_varexp_threshold(phen, pval_threshold, return_n_hat_mean=False):
+    n_hat_mean = get_n_hat_mean(phen=phen)
+    varexp_thresh = stats.chi2.isf(q=pval_threshold,df=1)/n_hat_mean
+    if return_n_hat_mean:
+        return varexp_thresh, n_hat_mean
+    else:
+        return varexp_thresh
 
 def get_blocked_mhc(ss):
     r'''
     Removes all but the most significant variant in the MHC region
     '''
-    genes = pd.read_csv(f'{smiles_wd}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
+    genes = pd.read_csv(f'{smiles_dir}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
     mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
     start = min(mhc_region.start)
     stop = max(mhc_region.stop)
@@ -237,9 +263,9 @@ def get_clumped_ss(ss, ld_wind_cm, use_ash):
 #        func = partial(clump_chrom, ss_tmp, ld_wind_cm, use_ash)
 #        ss_keep_list = pool.map(func, range(1,23))
 #        pool.close()
-        ss_keep_list = [clump_chrom(ss_tmp=ss_tmp,ld_wind_cm=ld_wind_cm,use_ash=True,chrom=chrom) for chrom in range(1,23)]
+        ss_keep_list = [clump_chrom(ss_tmp=ss_tmp,ld_wind_cm=ld_wind_cm,use_ash=use_ash,chrom=chrom) for chrom in range(1,23)]
         ss_keep = pd.concat(ss_keep_list)
-        ss_final = ss_keep if ss_final is None else ss_final.append(ss_keep, sort=False)
+        ss_final = ss_keep if ss_final is None else ss_final.append(ss_keep)
         
     print(f'Time to clump: {round((time()-start)/60,3)} min')
     print(f'Post-clump number of variants (LD window={ld_wind_cm}cM): {ss_final.shape[0]}\n')
@@ -253,6 +279,9 @@ def clump_chrom(ss_tmp, ld_wind_cm, use_ash, chrom):
     '''
     ss_keep = ss_tmp[[False]*len(ss_tmp)]
     genmap_chr = genmap_chr_list[chrom-1]
+    if ss_tmp.chr.dtype!=str:
+        ss_tmp['chr'] = ss_tmp.chr.astype(str)
+        chrom = str(chrom)
     ss_tmp = ss_tmp[ss_tmp.chr==chrom]
     while len(ss_tmp)>0:
         idx = ss_tmp.var_exp_ash==ss_tmp.var_exp_ash.max() if use_ash else ss_tmp.pval==ss_tmp.pval.min()
@@ -270,7 +299,7 @@ def clump_chrom(ss_tmp, ld_wind_cm, use_ash, chrom):
             b_pos = impute_pos(genmap_chr=genmap_chr, cm=cm+ld_wind_cm/2) # end of window around sentinel
         ss_w_top_locus = ss_tmp[(ss_tmp['chr']==chr)&(ss_tmp['pos']==pos)].copy() #extract sentinel variant, NOTE: This step must come before extracting rows in window around sentinel
         ss_tmp = ss_tmp[~((ss_tmp['chr']==chr)&(ss_tmp['pos']>=a_pos)&(ss_tmp['pos']<=b_pos))].copy() #extract rows not in window around current sentinel variant
-        ss_keep = ss_keep.append(ss_w_top_locus, sort=False)
+        ss_keep = ss_keep.append(ss_w_top_locus)
     
     return ss_keep
 
@@ -278,10 +307,10 @@ def plot_varexp_original_vs_ash(phen, ss, block_mhc, mixcompdist, logscale=False
     assert all([f in ss.columns.values for f in ['var_exp','var_exp_ash']]), "fields missing from sumstats file"
     plt.figure(figsize=(6,4))
     print(f'Number of variants: {ss.shape[0]}')
-    if logscale:
-        ss = ss[ss.var_exp != 0]
-        ss = ss[ss.var_exp_ash != 0]
-        print(f'Number of variants with var_exp or var_exp_ash != 0: {ss.shape[0]}')
+#    if logscale:
+#        ss = ss[ss.var_exp != 0]
+#        ss = ss[ss.var_exp_ash != 0]
+#        print(f'Number of variants with var_exp or var_exp_ash != 0: {ss.shape[0]}')
 #    plt.plot(ss['var_exp'],ss['var_exp_ash'],'.',alpha=0.05)
     plt.scatter(ss['var_exp'],ss['var_exp_ash'], 
                 c=ss.raf, 
@@ -300,28 +329,84 @@ def plot_varexp_original_vs_ash(phen, ss, block_mhc, mixcompdist, logscale=False
     plt.legend(['y=x'])
     plt.title(f'{phen}, {mixcompdist}, block_mhc={block_mhc}')
     plt.tight_layout()
-    plt.savefig(f'/Users/nbaya/Downloads/varexp_comparison.{"logscale." if logscale else ""}{get_phen_str(phen)}{f".{mixcompdist}" if mixcompdist != None else ""}{".block_mhc." if block_mhc else ""}.png',
-                dpi=300)
+    plot_fname = f'{smiles_dir}/plots/varexp_comparison.'
+    plot_fname += "logscale." if logscale else ""
+    plot_fname += get_phen_str(phen)
+    plot_fname += f".{mixcompdist}" if mixcompdist != None else ""
+    plot_fname += f'{".block_mhc" if block_mhc else ""}.png'
+    plt.savefig(plot_fname, dpi=300)
     plt.close()
     
-def plot_smiles_original_vs_ash(phen, ss, block_mhc, mixcompdist):
+def plot_smiles_original_vs_ash(phen, ss, block_mhc, mixcompdist, clumped=False):
     assert all([f in ss.columns.values for f in ['var_exp','var_exp_ash']]), "fields missing from sumstats file"
     plt.figure(figsize=(6,4))
     print(f'Number of variants: {ss.shape[0]}')
-    ss = ss[ss.var_exp != 0]
-    ss = ss[ss.var_exp_ash != 0]
+#    ss = ss[ss.var_exp != 0]
+#    ss = ss[ss.var_exp_ash != 0]
     print(f'Number of variants with var_exp or var_exp_ash != 0: {ss.shape[0]}')
     plt.plot(ss['raf'],ss['var_exp'],'.',alpha=0.1)
     plt.plot(ss['raf'],ss['var_exp_ash'],'.',alpha=0.1)
     plt.xlabel('raf')
     plt.ylabel('variance explained')
     plt.yscale('symlog')
+    ticks = list(map(lambda x: float('%s' % float('%.2g' % x)), np.logspace(np.log10(ss.var_exp.min()), np.log10(ss.var_exp.max()), 2)))
+    plt.yticks(ticks)
     plt.legend(['original','ash'])
-    plt.title(f'{phen}, {mixcompdist}, block_mhc={block_mhc}')
+    plt.title(f'{phen} (variants: {ss.shape[0]})\n{mixcompdist}, block_mhc={block_mhc}, clumped={clumped}')
     plt.tight_layout()
-    plt.savefig(f'/Users/nbaya/Downloads/smiles_original_vs_ash.{get_phen_str(phen)}{f".{mixcompdist}" if mixcompdist != None else ""}{".block_mhc." if block_mhc else ""}.png',
-                dpi=300)
+    plot_fname = f'{smiles_dir}/plots/{"clumped_" if clumped else ""}'
+    plot_fname += f'smiles_original_vs_ash.{get_phen_str(phen)}'
+    plot_fname += f'{f".{mixcompdist}" if mixcompdist != None else ""}{".block_mhc" if block_mhc else ""}.png'
+    plt.savefig(plot_fname, dpi=300)
     plt.close()
+    
+def manhattan_plot(ss, phen, use_varexp, use_ash=False, subtitle=None, show=True,
+                   chroms = range(1,23)):
+    if use_ash: use_varexp = True
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    if ss.chr.dtype != str:
+        ss['chr'] = ss.chr.astype(int).astype(str)
+    plt.figure(figsize=(12,6))
+    if not use_varexp:
+        ss['nlog10p'] = -np.log10(ss.pval)
+    prev_pos = 0
+    for chrom in chroms:
+        ss_chr = ss[ss.chr==str(chrom)]
+        print(ss_chr.shape)
+        min_pos = genmap_chr_list[chrom-1].pos.min() #min(ss_chr.pos.min(), genmap_chr_list[chrom-1].pos.min())
+        max_pos = genmap_chr_list[chrom-1].pos.max() #max(ss_chr.pos.max(), genmap_chr_list[chrom-1].pos.max())
+        if (ss_chr.pos<min_pos).any():
+            print(f'(chr{chrom}) Number of variants with pos<min_pos: {(ss_chr.pos<min_pos).sum()}')
+            ss_chr.loc[ss_chr.pos<min_pos,'pos'] = min_pos
+        if (ss_chr.pos>max_pos).any():
+            print(f'(chr{chrom}) Number of variants with pos>max_pos: {(ss_chr.pos>max_pos).sum()}')
+            ss_chr.loc[ss_chr.pos>max_pos,'pos'] = max_pos
+        plt.plot(ss_chr.pos-min_pos+prev_pos, 
+                 ss_chr.nlog10p if not use_varexp else (ss_chr.var_exp_ash if use_ash else ss_chr.var_exp),
+                 '.', c = colors[chrom%2])#, c=[ colors[chrom%2] for chrom in ss.chr])
+        prev_pos = prev_pos+max_pos
+    min_threshold = None
+    max_threshold = None
+    for pval in [1e-5, 1e-6, 1e-7, 1e-8]:
+        threshold = get_varexp_threshold(phen=phen, pval_threshold=pval) if use_varexp else -np.log10(pval)
+        plt.plot([0, prev_pos], [threshold]*2, 'k--')
+        min_threshold = threshold if min_threshold==None else min(threshold,min_threshold)
+        max_threshold = threshold if max_threshold==None else max(threshold,max_threshold)
+    if use_varexp:
+        plt.yscale('symlog')
+#        ticks = list(map(lambda x: float('%s' % float('%.2g' % x)), np.linspace(ss.var_exp.min(), ss.var_exp.max(), 5)))
+        ticks = list(map(lambda x: float('%s' % float('%.2g' % x)), np.logspace(np.log10(ss.var_exp.min()), np.log10(ss.var_exp.max()), 2)))
+        print(ticks)
+        plt.yticks(ticks)
+    plt.ylim([min_threshold, max_threshold])
+    plt.ylabel('variance explained' if use_varexp else '-log10(p)' )
+    plt.title(f'Manhattan plot for {get_phen_str(phen)} (variants: {ss.shape[0]})'+
+              ("\n"+subtitle if subtitle!=None else ""))
+    plt.savefig(f'{smiles_dir}/plots/manhattan.{get_phen_str(phen)}{"."+subtitle.replace(", ",".").replace("=","_").lower() if subtitle is not None else ""}.png',
+                dpi=300)
+    if not show:
+        plt.close()
+
 
     
 if __name__=="__main__":
@@ -331,17 +416,21 @@ if __name__=="__main__":
     ld_clumping = True          #only show the top hit (variant with lowest p-value) in a window of size `ld_wind_kb` kb or `ld_wind_cm` cm
 #    ld_wind_kb = 300           #int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
     ld_wind_cm = 0.6            # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
-    block_mhc = False            # remove all but the sentinel variant in the MHC region
-    save = True                 # whether to save summary stats dataframe post filtering
-    filter_by_varexp = False    # whether to filter by variance-explained threshold, converted from a p-value threshold
+    block_mhc = True            # remove all but the sentinel variant in the MHC region
+    save = False                 # whether to save summary stats dataframe post filtering
+    filter_by_varexp = True    # whether to filter by variance-explained threshold, converted from a p-value threshold
     use_ash = True              # if True, use ash posterior mean effect sizes to get var_exp and clump on var_exp instead of p-val
     mixcompdist = 'halfnormal' # ash-specific parameter for mixture distribution
     
-#    pval_thresholds = [1]
-#    pval_thresholds = [1e-5, 1e-6, 1e-7, 1e-8]
-    pval_thresholds = [1e-5]
 #    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
-
+#    pval_thresholds = [1]
+#    pval_thresholds = [1, 1e-5, 1e-6, 1e-7, 1e-8] # v2
+#    pval_thresholds = [1e-5]
+    pval_thresholds = [1e-5] # v1
+#    pval_thresholds = [1, 1e-5] #v2
+#    pval_thresholds = [1e-3, 1e-5] #v3
+#    pval_thresholds = [1e-4, 1e-5] # v4
+    
     genmap_chr_list = get_genmap()
     
         
@@ -349,16 +438,20 @@ if __name__=="__main__":
         print(f'Starting phen {phen}, using file {fname}')
         print(f'LD clumping: {ld_clumping}')
         print(f'Block MHC: {block_mhc}')
+        print(f'Filter by var-exp: {filter_by_varexp}')
+        print(f'Use ash results: {use_ash}'+
+              f'\nmixcompdist: {mixcompdist}' if use_ash else '')
+
         if ld_clumping:
 #            print(f'LD window: {ld_wind_kb/1e3}mb, {ld_wind_kb}kb')
             print(f'LD window: {ld_wind_cm}cM')
         
         try:
-            ss1 = ss_dict[phen]
+            ss1 = ss_dict[f'{phen}_{filter_by_varexp}_{use_ash}_{block_mhc}_{mixcompdist}']
             print(f'Using existing dataframe for {phen}')
         except KeyError:
             print(f'Loading dataframe for {phen}')
-            ss0 = pd.read_csv(f'{smiles_wd}/data/{fname}', sep='\t',compression='gzip')
+            ss0 = pd.read_csv(f'{smiles_dir}/data/{fname}', sep='\t',compression='gzip')
             ss1 = pre_clump_qc(ss0=ss0,
                                phen=phen,
                                filter_by_varexp=filter_by_varexp,
@@ -366,7 +459,7 @@ if __name__=="__main__":
                                block_mhc=block_mhc,
                                mixcompdist=mixcompdist
                                )
-            ss_dict.update({phen: ss1})
+            ss_dict.update({phen: f'{phen}_{filter_by_varexp}_{use_ash}_{block_mhc}_{mixcompdist}'})
             
         if use_ash:
             plot_varexp_original_vs_ash(phen=phen,
@@ -378,14 +471,16 @@ if __name__=="__main__":
                                         ss=ss1,
                                         block_mhc=block_mhc,
                                         mixcompdist=mixcompdist)
-
-        
+            
         ss1 = get_blocked_mhc(ss1) if block_mhc else ss1
         
-        ## Use to check bug 
+        ## Use to check clumping bug 
 ##        ss1 = ss1.sort_values(by=['pval','chr','pos'])
 #        ss2 = ss1.drop_duplicates(subset='pval',keep='first')
 #        ss2 = ss2[~ss2.coding]
+        
+#        ss1['chr'] = ss1.chr.astype(str)
+#        ss1 = ss1[ss1.chr=='22']
         
         ss_clumped = None
         pre_clumped = False
@@ -408,8 +503,18 @@ if __name__=="__main__":
                 ss_clumped = get_clumped_ss(ss=ss,
                                             ld_wind_cm=ld_wind_cm,
                                             use_ash=use_ash)
-                pre_clumped = True # computational speed up to take advantage of clumped version for less stringent pval thresholds
-                
+#                pre_clumped = True # computational speed up to take advantage of clumped version for less stringent pval thresholds
+            
+            plot_smiles_original_vs_ash(phen=phen, 
+                                        ss=ss_clumped, 
+                                        block_mhc=block_mhc, 
+                                        mixcompdist=mixcompdist, 
+                                        clumped=ld_clumping)
+            
+            manhattan_plot(ss=ss_clumped, phen=phen, use_varexp=filter_by_varexp,
+                           chroms=range(1,23),
+                           subtitle=f'independently clumped v3, chr22, pval_thresh={pval_threshold}, varexp_thresholded={filter_by_varexp}, use_ash={use_ash}')
+            
             if save:
                 phen_str = get_phen_str(phen=phen)
                 out_fname = f'{"clumped_" if ld_clumping else ""}'
@@ -419,7 +524,7 @@ if __name__=="__main__":
                 out_fname += f'{"block_mhc." if block_mhc else ""}'
                 out_fname += f'pval_{pval_threshold}.{"varexp_thresh." if filter_by_varexp else ""}' if pval_threshold <1 else ''
                 out_fname += 'tsv.gz'
-                ss_clumped.to_csv(f'{smiles_wd}/data/'+out_fname,sep='\t',index=False, compression='gzip')
+                ss_clumped.to_csv(f'{smiles_dir}/data/'+out_fname,sep='\t',index=False, compression='gzip')
                 
 #else:
 #    for _, phen in fname_dict.items():

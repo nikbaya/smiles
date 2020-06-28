@@ -8,11 +8,14 @@ Prune GWAS sumstats for ashR
 @author: nbaya
 """
 
+import os
 import pandas as pd
 from time import time
 
-
-smiles_wd = "/Users/nbaya/Documents/lab/smiles"
+if os.path.isdir('/Users/nbaya/'): # if working locally
+    smiles_dir = "/Users/nbaya/Documents/lab/smiles"
+else:
+    smiles_dir = "/stanley/genetics/users/nbaya/smiles"
 
 fname_dict = {
 #             '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
@@ -24,8 +27,19 @@ fname_dict = {
 #             'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
 #             'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD', #Alzheimer's disease meta-analysis
              'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
-             'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.coding.tsv.gz': 'MICAD'
+#             'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.coding.tsv.gz': 'MICAD',
+#             '30780_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'LDL',
+#             '30000_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'WBC count',
+#             '30010_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'RBC count',
+#             '30880_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Urate'
+             '4080_irnt.gwas.imputed_v3.both_sexes.tsv.bgz':'Systolic BP',
+             '4079_irnt.gwas.imputed_v3.both_sexes.tsv.bgz':'Diastolic BP',
+             '30870_irnt.gwas.imputed_v3.both_sexes.tsv.bgz': 'Triglycerides',
+             '30760_irnt.gwas.imputed_v3.both_sexes.tsv.bgz': 'HDL'
              }
+
+def get_phen_str(phen):
+    return phen.replace(' ','_').lower()
 
 def pre_prune_qc(ss0, phen):
     r'''
@@ -80,14 +94,20 @@ def pre_prune_qc(ss0, phen):
     snp_ct_after = ss0.shape[0]
     print(f'# of SNPs removed with missing EAF: {snp_ct_before-snp_ct_after}')
               
+    if 'low_confidence_variant' in ss0.columns.values:
+        ss0 = ss0[~ss0.low_confidence_variant]
+    
+    if phen=='Breast cancer':
+        se_threshold = 1000
+        snp_ct_before = ss0.shape[0]
+        ss0 = ss0[ss0.se<se_threshold]
+        print(f'NOTE: Removed {snp_ct_before-ss0.shape[0]} SNPs in "{phen}" with standard error > {se_threshold}')
+        
     ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'eaf']
     ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'eaf']
 
     ss0.loc[ss0.index,'rbeta'] = ss0['beta'].abs() #beta is transformed to risk (or trait-increasing) allele effect size
-    
-    if 'low_confidence_variant' in ss0.columns.values:
-        ss0 = ss0[~ss0.low_confidence_variant]
-    
+        
     ss0['var_exp'] = 2*ss0.raf*(1-ss0.raf)*ss0.rbeta**2
         
     return ss0
@@ -96,7 +116,7 @@ def get_blocked_mhc(ss):
     r'''
     Removes all but the most significant variant in the MHC region
     '''
-    genes = pd.read_csv(f'{smiles_wd}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
+    genes = pd.read_csv(f'{smiles_dir}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
     mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
     start = min(mhc_region.start)
     stop = max(mhc_region.stop)
@@ -132,26 +152,23 @@ if __name__=="__main__":
     
     for fname, phen in fname_dict.items():
         print(f'Starting phen {phen}, using file {fname}')
-
         print(f'Block MHC: {block_mhc}')
         print(f'LD window: {ld_wind_kb}kb')
         
-        ss0 = pd.read_csv(f'{smiles_wd}/data/'+fname, sep='\t',compression='gzip')
+        ss0 = pd.read_csv(f'{smiles_dir}/data/'+fname, sep='\t',compression='gzip')
         
         ss1 = pre_prune_qc(ss0, phen)
         
         ss2 = get_blocked_mhc(ss1) if block_mhc else ss1
         
         if save_unpruned:
-            phen_str = phen.replace(' ','_').lower()
-            unpruned_fname = f'gwas.{phen_str}.{"block_mhc." if block_mhc else ""}tsv.gz'
-            ss2[['chr','pos','beta','se']].to_csv(f'{smiles_wd}/data/{unpruned_fname}',compression='gzip',sep='\t', index=False)
-
+            phen_str = get_phen_str(phen)
+            unpruned_fname = f'gwas.{get_phen_str(phen)}.{"block_mhc." if block_mhc else ""}tsv.gz'
+            ss2[['chr','pos','beta','se']].to_csv(f'{smiles_dir}/data/{unpruned_fname}',compression='gzip',sep='\t', index=False)
 
         ss = get_pruned_ss(ss=ss2,
                            ld_wind_kb=ld_wind_kb)
         
         if save:
-            phen_str = phen.replace(' ','_').lower()
-            pruned_fname = f'pruned_gwas.{phen_str}.ld_wind_kb_{ld_wind_kb}.{"block_mhc." if block_mhc else ""}tsv.gz'
-            ss[['chr','pos','beta','se']].to_csv(f'{smiles_wd}/data/{pruned_fname}',compression='gzip',sep='\t', index=False)
+            pruned_fname = f'pruned_gwas.{get_phen_str(phen)}.ld_wind_kb_{ld_wind_kb}.{"block_mhc." if block_mhc else ""}tsv.gz'
+            ss[['chr','pos','beta','se']].to_csv(f'{smiles_dir}/data/{pruned_fname}',compression='gzip',sep='\t', index=False)

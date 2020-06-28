@@ -285,7 +285,7 @@ plt.plot(df[df.P < 5e-8].RAF_ben, np.abs(df[df.P < 5e-8].beta_ben), '.')
 ## Read in Beecham 2013 GWAS of multiple sclerosis
 # No effect allele freqency (or other effect allele frequency)
 ms =  pd.read_csv('/Users/nbaya/Documents/lab/smiles/data/multiplesclerosis.beecham2013.b37.tsv.gz',
-                  compression='gzip',sep='\t')
+                  compression='gzip',sep='\t', low_memory=False)
 
 
 
@@ -293,11 +293,20 @@ ms =  pd.read_csv('/Users/nbaya/Documents/lab/smiles/data/multiplesclerosis.beec
 ## Citation: Data on coronary artery disease / myocardial infarction have been 
 ##           contributed by the Myocardial Infarction Genetics and CARDIoGRAM 
 ##           Exome investigators and have been downloaded from www.CARDIOGRAMPLUSC4D.ORG
-mi = pd.read_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.txt.gz',
+#mi = pd.read_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.txt.gz', # old results
+#                 delim_whitespace=True, compression='gzip')
+mi = pd.read_csv(f'{wd_data}/UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.txt.gz',
                  delim_whitespace=True, compression='gzip')
+mi = mi.rename(columns={'bp_hg19':'pos_hg19', 
+                        'effect_allele_freq':'eaf', 
+                        'p-value_gc':'pval',
+                        'se_gc':'se'})
+mi.loc[:, 'beta'] = stats.norm.ppf(mi.pval/2)*mi.se*(np.sign(np.log(mi.logOR)))
+assert False, 'doublecheck'
+mi['beta1'] = np.log10(mi.logOR)
 mi.loc[mi.log_OR>0,'beta'] = np.log(mi.loc[mi.log_OR>0,'log_OR']) # all SNPs with log_OR=0 have a p-value>=0.9958, so it's okay to exlude these
 mi = mi.rename(columns={'effect_allele_freq':'eaf','Pvalue':'pval','N_samples':'n'})
-mi = mi[['chr', 'pos', 'effect_allele','other_allele', 'n','eaf','beta', 'pval']]
+mi = mi[['chr', 'pos', 'effect_allele','other_allele', 'n','eaf','beta', 'se','pval']]
 mi_tmp = mi.dropna(axis=0)
 print(f'Dropped {mi.shape[0]-mi_tmp.shape[0]} rows for having NA values')
 for col in mi.columns.values:
@@ -305,7 +314,7 @@ for col in mi.columns.values:
 mi = mi_tmp
 mi['chr'] = mi['chr'].astype(int)
 mi['pos'] = mi['pos'].astype(int)
-mi.to_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.tsv.gz',
+mi.to_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.tsv.gz',
           sep='\t', index=False, compression='gzip')
 
 
@@ -328,10 +337,27 @@ for col in cols_to_filter:
     print(f'\tNA values in column {col}: {sum(bc[col].isnull())}')
 bc = bc_tmp
 bc['pos'] = bc['pos'].astype(int)
-bc.to_csv(wd_data+'breastcancer.michailidou2017.b37.cleaned.tsv.gz',
+bc.to_csv(f'{wd_data}/breastcancer.michailidou2017.b37.cleaned.tsv.gz',
           sep='\t', index=False, compression='gzip')
 
 
+## Read in Stahl et al 2010 rheumatoid arthritis meta-analysis GWAS
+# See: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4243840/
+# Download: 
+#   ftp://ftp.ebi.ac.uk/pub/databases/gwas/summary_statistics/StahlEA_20453842_GCST000679
+#   ftp://ftp.broadinstitute.org/pub/rheumatoid_arthritis/Stahl_etal_2010NG
+# Discovery GWAS
+#    5539 autoantibody-positive individuals with rheumatoid arthritis
+#    20169 controls of European descent
+# Replication cohort: 6768 cases/8806 controls
+# Total cases = , total controls = 
+ra_effect_allele = pd.read_csv(f'{wd_data}/stahl_2010_20453842_ra_efo0000685_1_gwas.sumstats.tsv.gz',
+                               sep='\t', compression='gzip', low_memory=False)
+ra = pd.read_csv(f'{wd_data}/RA_GWASmeta2_20090505-results.txt.gz',
+                 delim_whitespace=True, compression='gzip', low_memory=False)
+ra['alleles'] = ra.apply(lambda x: '-'.join(sorted(x[['major_al','minor_al']])))
+
+ra_test['alleles'] = ra_test.apply(lambda x: '-'.join(sorted([x['major_al'],x['minor_al']].values)))
 
 
 ## Read fine-mapped version of BMI
@@ -695,7 +721,6 @@ plt.savefig('/Users/nbaya/Downloads/image1.png',dpi=300)
 
 plot_saige_varexp(df=ca, phen='coronoary atherosclerosis')
 plt.savefig('/Users/nbaya/Downloads/image2.png',dpi=300)
-
 
 
 ## Read simulation results
