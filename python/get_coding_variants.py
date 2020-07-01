@@ -65,6 +65,7 @@ fnames = ['4080_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
           '4079_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
           '30870_irnt.gwas.imputed_v3.both_sexes.tsv.bgz']
 fname = '30760_irnt.gwas.imputed_v3.both_sexes.tsv.bgz'
+fname='UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.cleaned.tsv.gz'
 for fname in fnames:
     ss0 = hl.import_table(f'{wd_data}/{fname}',impute=True,force=True,types={'chr':hl.tstr})
     if 'variant' in list(ss0.row): 
@@ -76,6 +77,7 @@ for fname in fnames:
         ss = ss.annotate(locus = hl.parse_locus(locus[0]+':'+locus[1],reference_genome='GRCh37'))
     elif 'chr' in list(ss0.row) and 'pos' in list(ss0.row):
         ss = ss0.annotate(locus = hl.locus(contig=ss0.chr,pos=ss0.pos,reference_genome='GRCh37'))
+            
     ss = ss.annotate(coding=hl.is_defined(t2[ss.locus]))
     fields_to_drop = []
     fields = ['locus','AC','ytx','tstat', 'A1','A2', 'effect_allele','other_allele']

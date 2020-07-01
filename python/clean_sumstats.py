@@ -289,10 +289,10 @@ ms =  pd.read_csv('/Users/nbaya/Documents/lab/smiles/data/multiplesclerosis.beec
 
 
 
-## Read in MICAD.EUR.ExA.Consortium.PublicRelease.310517.txt.gz from
 ## Citation: Data on coronary artery disease / myocardial infarction have been 
 ##           contributed by the Myocardial Infarction Genetics and CARDIoGRAM 
 ##           Exome investigators and have been downloaded from www.CARDIOGRAMPLUSC4D.ORG
+
 #mi = pd.read_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.txt.gz', # old results
 #                 delim_whitespace=True, compression='gzip')
 mi = pd.read_csv(f'{wd_data}/UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.txt.gz',
@@ -301,11 +301,21 @@ mi = mi.rename(columns={'bp_hg19':'pos_hg19',
                         'effect_allele_freq':'eaf', 
                         'p-value_gc':'pval',
                         'se_gc':'se'})
-mi.loc[:, 'beta'] = stats.norm.ppf(mi.pval/2)*mi.se*(np.sign(np.log(mi.logOR)))
+mi = mi[(~mi.chr.isna()) & (abs(mi.chr.astype(float))<np.inf )]
+mi['chr'] = mi.chr.astype(int).astype(str)
+mi = mi[mi.logOR>0] # removed variants with logOR=0 because they also had pval>0.999
+
+mi['beta1']  = np.log(mi.logOR)
+mi['pval1'] = stats.norm.cdf(-abs(mi.beta1/mi.se))*2
+
+mi['beta2']  = np.log10(mi.logOR)
+mi['pval2'] = stats.norm.cdf(-abs(mi.beta2/mi.se))*2
+
+mi.loc[:, 'beta3'] = stats.norm.ppf(mi.pval/2)*mi.se*(np.sign(np.log(mi.logOR)))
 assert False, 'doublecheck'
 mi['beta1'] = np.log10(mi.logOR)
 mi.loc[mi.log_OR>0,'beta'] = np.log(mi.loc[mi.log_OR>0,'log_OR']) # all SNPs with log_OR=0 have a p-value>=0.9958, so it's okay to exlude these
-mi = mi.rename(columns={'effect_allele_freq':'eaf','Pvalue':'pval','N_samples':'n'})
+
 mi = mi[['chr', 'pos', 'effect_allele','other_allele', 'n','eaf','beta', 'se','pval']]
 mi_tmp = mi.dropna(axis=0)
 print(f'Dropped {mi.shape[0]-mi_tmp.shape[0]} rows for having NA values')

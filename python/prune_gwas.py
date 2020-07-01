@@ -26,8 +26,8 @@ fname_dict = {
 #             'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
 #             'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
 #             'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD', #Alzheimer's disease meta-analysis
-             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
-#             'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.coding.tsv.gz': 'MICAD',
+#             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
+#             'UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.cleaned.coding.tsv.gz': 'CAD',
 #             '30780_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'LDL',
 #             '30000_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'WBC count',
 #             '30010_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'RBC count',
@@ -98,10 +98,10 @@ def pre_prune_qc(ss0, phen):
         ss0 = ss0[~ss0.low_confidence_variant]
     
     if phen=='Breast cancer':
-        se_threshold = 1000
+        pval_threshold = 1e-5
         snp_ct_before = ss0.shape[0]
-        ss0 = ss0[ss0.se<se_threshold]
-        print(f'NOTE: Removed {snp_ct_before-ss0.shape[0]} SNPs in "{phen}" with standard error > {se_threshold}')
+        ss0 = ss0[ss0.pval<=pval_threshold]
+        print(f'NOTE: Removed {snp_ct_before-ss0.shape[0]} SNPs in "{phen}" with pval > {pval_threshold}')
         
     ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'eaf']
     ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'eaf']

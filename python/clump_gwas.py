@@ -32,16 +32,16 @@ fname_dict = {
 #             'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
 #             'daner_PGC_SCZ43_mds9.coding.tsv.gz':'SCZ', #PGC data for SCZ (NOTE: The SNP effects were flipped when converting from odds ratio because daner files use odds ratios based on A1, presumably the ref allele, unlike UKB results which have betas based on the alt allele)
 #             'AD_sumstats_Jansenetal_2019sept.coding.tsv.gz':'AD', #Alzheimer's disease meta-analysis
-             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
+#             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
 #             'MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.coding.tsv.gz': 'MICAD',
 #             '30780_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'LDL',
 #             '30000_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'WBC count',
 #             '30010_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'RBC count',
 #             '30880_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Urate'
              '4080_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Systolic BP',
-             '4079_irnt.gwas.imputed_v3.both_sexes.tsv.bgz':'Diastolic BP',
+             '4079_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diastolic BP',
              '30870_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Triglycerides',
-             '30760_irnt.gwas.imputed_v3.both_sexes.tsv.bgz': 'HDL'
+             '30760_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'HDL'
              }
 
 def get_phen_str(phen):
@@ -346,11 +346,12 @@ def plot_smiles_original_vs_ash(phen, ss, block_mhc, mixcompdist, clumped=False)
     print(f'Number of variants with var_exp or var_exp_ash != 0: {ss.shape[0]}')
     plt.plot(ss['raf'],ss['var_exp'],'.',alpha=0.1)
     plt.plot(ss['raf'],ss['var_exp_ash'],'.',alpha=0.1)
+    ticks = list(map(lambda x: float('%s' % float('%.2g' % x)), np.logspace(np.log10(ss.var_exp_ash.min()), np.log10(ss.var_exp_ash.max()), 3)))
+    plt.yticks(ticks)
+    plt.ylim([ss.var_exp_ash.min(), ss.var_exp_ash.max()])
     plt.xlabel('raf')
     plt.ylabel('variance explained')
     plt.yscale('symlog')
-    ticks = list(map(lambda x: float('%s' % float('%.2g' % x)), np.logspace(np.log10(ss.var_exp.min()), np.log10(ss.var_exp.max()), 2)))
-    plt.yticks(ticks)
     plt.legend(['original','ash'])
     plt.title(f'{phen} (variants: {ss.shape[0]})\n{mixcompdist}, block_mhc={block_mhc}, clumped={clumped}')
     plt.tight_layout()
@@ -417,10 +418,10 @@ if __name__=="__main__":
 #    ld_wind_kb = 300           #int(300e3) if get_top_loci else int(1000e3) #measured in kb; default for when ld_clumping is true: 100e3; default for when get_top_loci is true: 300e3
     ld_wind_cm = 0.6            # 1 Mb = 1 cM -> 600 Kb = 0.6 cM
     block_mhc = True            # remove all but the sentinel variant in the MHC region
-    save = False                 # whether to save summary stats dataframe post filtering
     filter_by_varexp = True    # whether to filter by variance-explained threshold, converted from a p-value threshold
     use_ash = True              # if True, use ash posterior mean effect sizes to get var_exp and clump on var_exp instead of p-val
     mixcompdist = 'halfnormal' # ash-specific parameter for mixture distribution
+    save = False                 # whether to save summary stats dataframe post filtering
     
 #    pval_thresholds = sorted([1, 1e-5, 1e-6, 1e-7, 5e-8, 1e-8],reverse=True)
 #    pval_thresholds = [1]
@@ -459,7 +460,7 @@ if __name__=="__main__":
                                block_mhc=block_mhc,
                                mixcompdist=mixcompdist
                                )
-            ss_dict.update({phen: f'{phen}_{filter_by_varexp}_{use_ash}_{block_mhc}_{mixcompdist}'})
+            ss_dict.update({f'{phen}_{filter_by_varexp}_{use_ash}_{block_mhc}_{mixcompdist}': ss1})
             
         if use_ash:
             plot_varexp_original_vs_ash(phen=phen,
@@ -505,11 +506,12 @@ if __name__=="__main__":
                                             use_ash=use_ash)
 #                pre_clumped = True # computational speed up to take advantage of clumped version for less stringent pval thresholds
             
-            plot_smiles_original_vs_ash(phen=phen, 
-                                        ss=ss_clumped, 
-                                        block_mhc=block_mhc, 
-                                        mixcompdist=mixcompdist, 
-                                        clumped=ld_clumping)
+            if use_ash:
+                plot_smiles_original_vs_ash(phen=phen, 
+                                            ss=ss_clumped, 
+                                            block_mhc=block_mhc, 
+                                            mixcompdist=mixcompdist, 
+                                            clumped=ld_clumping)
             
             manhattan_plot(ss=ss_clumped, phen=phen, use_varexp=filter_by_varexp,
                            chroms=range(1,23),
