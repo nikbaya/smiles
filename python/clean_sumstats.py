@@ -33,10 +33,10 @@ wd_data = "/Users/nbaya/Documents/lab/smiles/data"
 t2d = pd.read_csv(f'{wd_data}/Mahajan.NatGenet2018b.T2Dbmiadj.European.txt.gz',
                   compression='gzip', delimiter='\t')
 t2d = t2d.rename(columns={'Chr': 'chr', 'Pos': 'pos', 'Beta': 'beta',
-                          'Pvalue': 'pval', 'Neff': 'n_complete_samples',
-                          'SE':'se'})
+                          'Pvalue': 'pval', 'Neff': 'n','EAF':'eaf',
+                          'SE':'se', 'EA':'A1','NEA':'A2'})
 t2d['chr'] = t2d['chr'].astype(str)
-t2d = t2d[['chr', 'pos', 'EAF', 'beta', 'se','pval', 'n_complete_samples']]
+t2d = t2d[['chr', 'pos', 'A1', 'A2','eaf', 'beta', 'se','pval', 'n']]
 t2d.to_csv(f'{wd_data}/Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
            compression='gzip', sep='\t', index=False)
 
@@ -71,7 +71,7 @@ t2d.to_csv(f'{wd_data}/Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
 
 
 # Clean up IBD, CD (Crohn's), UC (ulcerative colitis) data
-diseases = ['IBD','CD','UC']
+diseases = {'IBD','CD','UC'}
 for disease in diseases:
     df = pd.read_csv(f'{wd_data}/EUR.{disease}.gwas_info03_filtered.assoc.gz',
                   compression='gzip', delim_whitespace=True)
@@ -81,7 +81,7 @@ for disease in diseases:
                             'P': 'pval', 'BP': 'pos','SE':'se'})    
     df['beta'] = np.log(df.OR)
     df['n'] = n_cas + n_con
-    df = df[['chr', 'pos', 'eaf', 'beta', 'se','pval', 'n']]
+    df = df[['chr', 'pos', 'A1', 'A2', 'eaf', 'beta', 'se','pval', 'n']]
     df.to_csv(f'{wd_data}/EUR.{disease}.gwas_info03_filtered.assoc.tsv.gz',
               compression='gzip', sep='\t', index=False)
     
@@ -297,26 +297,17 @@ ms =  pd.read_csv('/Users/nbaya/Documents/lab/smiles/data/multiplesclerosis.beec
 #                 delim_whitespace=True, compression='gzip')
 mi = pd.read_csv(f'{wd_data}/UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.txt.gz',
                  delim_whitespace=True, compression='gzip')
-mi = mi.rename(columns={'bp_hg19':'pos_hg19', 
+mi = mi.rename(columns={'bp_hg19':'pos', 
                         'effect_allele_freq':'eaf', 
                         'p-value_gc':'pval',
-                        'se_gc':'se'})
+                        'se_gc':'se',
+                        'effect_allele':'A1',
+                        'noneffect_allele':'A2',
+                        'logOR':'beta'})
 mi = mi[(~mi.chr.isna()) & (abs(mi.chr.astype(float))<np.inf )]
 mi['chr'] = mi.chr.astype(int).astype(str)
-mi = mi[mi.logOR>0] # removed variants with logOR=0 because they also had pval>0.999
 
-mi['beta1']  = np.log(mi.logOR)
-mi['pval1'] = stats.norm.cdf(-abs(mi.beta1/mi.se))*2
-
-mi['beta2']  = np.log10(mi.logOR)
-mi['pval2'] = stats.norm.cdf(-abs(mi.beta2/mi.se))*2
-
-mi.loc[:, 'beta3'] = stats.norm.ppf(mi.pval/2)*mi.se*(np.sign(np.log(mi.logOR)))
-assert False, 'doublecheck'
-mi['beta1'] = np.log10(mi.logOR)
-mi.loc[mi.log_OR>0,'beta'] = np.log(mi.loc[mi.log_OR>0,'log_OR']) # all SNPs with log_OR=0 have a p-value>=0.9958, so it's okay to exlude these
-
-mi = mi[['chr', 'pos', 'effect_allele','other_allele', 'n','eaf','beta', 'se','pval']]
+mi = mi[['chr', 'pos', 'A1','A2','eaf','beta', 'se','pval', 'n']]
 mi_tmp = mi.dropna(axis=0)
 print(f'Dropped {mi.shape[0]-mi_tmp.shape[0]} rows for having NA values')
 for col in mi.columns.values:

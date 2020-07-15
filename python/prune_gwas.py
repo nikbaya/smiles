@@ -10,6 +10,7 @@ Prune GWAS sumstats for ashR
 
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
 from time import time
 
 if os.path.isdir('/Users/nbaya/'): # if working locally
@@ -20,7 +21,7 @@ else:
 fname_dict = {
 #             '50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Standing height', # UKB
 #             '21001_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'BMI', # UKB
-#             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
+             'Mahajan.NatGenet2018b.T2Dbmiadj.European.coding.tsv.gz':'T2D_bmiadj', #this is the edited version of the original BMI-adjusted data, some unnecessary columns were removed
 #             'EUR.IBD.gwas_info03_filtered.assoc.coding.tsv.gz':'IBD',#,#EUR IBD from transethnic ancestry meta-analysis
 #             'EUR.CD.gwas_info03_filtered.assoc.coding.tsv.gz':'CD', #EUR CD from transethnic ancestry meta-analysis
 #             'EUR.UC.gwas_info03_filtered.assoc.coding.tsv.gz':'UC', #EUR UC from transethnic ancestry meta-analysis
@@ -29,13 +30,13 @@ fname_dict = {
 #             'breastcancer.michailidou2017.b37.cleaned.coding.tsv.gz':'Breast cancer',
 #             'UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.cleaned.coding.tsv.gz': 'CAD',
 #             '30780_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'LDL',
+#             '30760_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'HDL',
 #             '30000_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'WBC count',
 #             '30010_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'RBC count',
-#             '30880_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Urate'
-             '4080_irnt.gwas.imputed_v3.both_sexes.tsv.bgz':'Systolic BP',
-             '4079_irnt.gwas.imputed_v3.both_sexes.tsv.bgz':'Diastolic BP',
-             '30870_irnt.gwas.imputed_v3.both_sexes.tsv.bgz': 'Triglycerides',
-             '30760_irnt.gwas.imputed_v3.both_sexes.tsv.bgz': 'HDL'
+#             '30880_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Urate',
+#             '4080_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Systolic BP',
+#             '4079_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz':'Diastolic BP',
+#             '30870_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz': 'Triglycerides',
              }
 
 def get_phen_str(phen):
@@ -51,6 +52,11 @@ def pre_prune_qc(ss0, phen):
         ss0['chr'] = ss0.variant.str.split(':',n=1,expand=True).iloc[:,0]
     else:
         ss0['chr'] = ss0['chr'].astype(str)
+    if not ('A1' in ss0.columns.values)&('A2' in ss0.columns.values):
+        if 'variant' in ss0.columns.values:
+            ss0['A1'] = ss0.variant.str.split(':',expand=True)[2]
+            ss0['A2'] = ss0.variant.str.split(':',expand=True)[3]
+    assert ('A1' in ss0.columns.values)&('A2' in ss0.columns.values)
     print(f'Filtering to autosomes...(variant qt: {ss0.shape[0]})')
     ss0 = ss0[ss0.chr.isin([str(x) for x in range(1,23)])] # only need to go up to chr 22 because genetic map only covers 22 chr
     print(f'Filtered to autosomes...(variant qt: {ss0.shape[0]})')
@@ -96,19 +102,17 @@ def pre_prune_qc(ss0, phen):
               
     if 'low_confidence_variant' in ss0.columns.values:
         ss0 = ss0[~ss0.low_confidence_variant]
+
+    # note the number of SNPs with beta=0
+    print(f'SNPs with beta=0: {ss0[ss0.beta==0].shape[0]}')
     
-    if phen=='Breast cancer':
-        pval_threshold = 1e-5
-        snp_ct_before = ss0.shape[0]
-        ss0 = ss0[ss0.pval<=pval_threshold]
-        print(f'NOTE: Removed {snp_ct_before-ss0.shape[0]} SNPs in "{phen}" with pval > {pval_threshold}')
-        
-    ss0.loc[ss0.beta>0,'raf'] = ss0.loc[ss0.beta>0,'eaf']
+    ss0.loc[ss0.beta>=0,'raf'] = ss0.loc[ss0.beta>=0,'eaf']
     ss0.loc[ss0.beta<0,'raf'] = 1-ss0.loc[ss0.beta<0,'eaf']
 
     ss0.loc[ss0.index,'rbeta'] = ss0['beta'].abs() #beta is transformed to risk (or trait-increasing) allele effect size
         
     ss0['var_exp'] = 2*ss0.raf*(1-ss0.raf)*ss0.rbeta**2
+    ss0['var_exp_se'] = 4*ss0.raf*(1-ss0.raf)*ss0.rbeta*ss0.se
         
     return ss0
 
@@ -143,12 +147,19 @@ def get_pruned_ss(ss, ld_wind_kb):
     print(f'Post-filter # of variants (LD window={ld_wind_kb}kb): {ss.shape[0]}\n')
     return ss    
 
-
+def plot_smile(ss, title, yaxis='var_exp'):
+    plt.figure()
+    plt.plot(ss.raf, ss[yaxis], '.')
+    plt.xlabel('raf')
+    plt.ylabel(yaxis)
+    plt.yscale('log')
+    plt.title(title)
+    
 if __name__=="__main__":
     ld_wind_kb = 500 # default: 500 kb
     block_mhc = True
-    save = True
     save_unpruned = True
+    save_pruned = True
     
     for fname, phen in fname_dict.items():
         print(f'Starting phen {phen}, using file {fname}')
@@ -164,11 +175,20 @@ if __name__=="__main__":
         if save_unpruned:
             phen_str = get_phen_str(phen)
             unpruned_fname = f'gwas.{get_phen_str(phen)}.{"block_mhc." if block_mhc else ""}tsv.gz'
-            ss2[['chr','pos','beta','se']].to_csv(f'{smiles_dir}/data/{unpruned_fname}',compression='gzip',sep='\t', index=False)
+            ss2[['chr','pos','A1','A2','beta','se', 'var_exp','var_exp_se']].to_csv(f'{smiles_dir}/data/{unpruned_fname}',compression='gzip',sep='\t', index=False)
+
+    
+        if phen=='Breast cancer': # This step removes 
+            pval_threshold = 1e-5
+            snp_ct_before = ss2.shape[0]
+            ss2 = ss2[ss2.pval<=pval_threshold]
+            print(f'NOTE: Removed {snp_ct_before-ss2.shape[0]} SNPs in "{phen}" with pval > {pval_threshold}')
 
         ss = get_pruned_ss(ss=ss2,
                            ld_wind_kb=ld_wind_kb)
         
-        if save:
+#        plot_smile(ss, yaxis='var_exp', title=f'{phen}\npruned, {ld_wind_kb} kb window ({ss.shape[0]} SNPs)')
+        
+        if save_pruned:
             pruned_fname = f'pruned_gwas.{get_phen_str(phen)}.ld_wind_kb_{ld_wind_kb}.{"block_mhc." if block_mhc else ""}tsv.gz'
-            ss[['chr','pos','beta','se']].to_csv(f'{smiles_dir}/data/{pruned_fname}',compression='gzip',sep='\t', index=False)
+            ss[['chr','pos','A1','A2','beta','se', 'var_exp','var_exp_se']].to_csv(f'{smiles_dir}/data/{pruned_fname}',compression='gzip',sep='\t', index=False)
