@@ -10,31 +10,31 @@ if (!dir.exists(smiles_dir)) {
 data_dir=paste0(smiles_dir,'/data')
 
 phenos = c(
-  'standing_height',
+  # 'standing_height',
   # 'bmi',
-  't2d_bmiadj',
-  # 'ibd',
-  # 'cd',
-  # 'uc',
-  # 'scz',
-  # 'ad',
-  # 'breast_cancer'
-  # 'cad',
-  # 'ldl',
-  'hdl'
-  # 'wbc_count',
-  # 'rbc_count',
-  # 'urate',
-  # 'systolic_bp',
-  # 'diastolic_bp',
-  # 'triglycerides'
+  # 't2d_bmiadj',
+  'ibd',
+  'cd',
+  'uc',
+  'scz',
+  'ad',
+  'breast_cancer',
+  'cad',
+  'ldl',
+  # 'hdl'
+  'wbc_count',
+  'rbc_count',
+  'urate',
+  'systolic_bp',
+  'diastolic_bp',
+  'triglycerides'
 )
 
 ld_wind_kb = 500
 block_mhc = TRUE
-betahat = 'beta' # Which "betahat" is used for ash. options: beta, abs_beta, var_exp (default: beta)
-pointmass=TRUE # whether to include point mass at zero in prior
-mixcompdist = 'halfnormal' #"+uniform" # options: normal, +uniform (if using var_exp instead of beta), halfnormal, halfuniform
+betahat = 'var_exp' # Which "betahat" is used for ash. options: beta, abs_beta, var_exp (default: beta)
+pointmass=T # whether to include point mass at zero in prior
+mixcompdist = '+uniform' #"+uniform" # options: normal, +uniform (if using var_exp instead of beta), halfnormal, halfuniform
 stopifnot(!(((betahat=='abs_beta')|(betahat=='var_exp'))&(mixcompdist!='+uniform'))) # assert that mixcompdist must be +uniform if fitting on abs(beta) or variance explained
 
 read_ss <- function(fname) {
@@ -84,25 +84,24 @@ for ( pheno in phenos ) {
     }
   } else if (grepl('uniform', mixcompdist)) {
     g = data.frame(ld.pruned.g[1:3])  
-    x <- seq(0, max(g$b)*1.05, length=1000)
-    if (!(0 %in% x)) { # in case of point mass at zero, add x=0 entry
-      x = append(x, 0)
-      x = sort(x)
-    }
+    x <- seq(0, max(g$b), length=1000)
+    # if (!(0 %in% x)) { # in case of point mass at zero, add x=0 entry
+    #   x = append(x, 0)
+    #   x = sort(x)
+    # }
     y <- rep(0, length(x))
     density <-data.frame('x'=x, 'y'=y)
     for (row_idx in 1:nrow(g)) {
       row = g[row_idx,]
       if (row$pi>0) {
-        if (row$a==row$b) {
-          density[density$x==0, 'y'] = row$pi
-        } else{
+        if (row$a!=row$b) { # ignore pointmass entries (i.e. distributions with no width)
           # density$y = density$y+row$pi*dunif(density$x, min=row$a, max=row$b)*(row$b-row$a) # max density of uniform function is always 1
           density$y = density$y+row$pi*dunif(density$x, min=row$a, max=row$b) # density integrates to 1
         }
         
       }
     }
+    density <- rbind(data.frame(x=0,y=0), density, data.frame(x=max(density$x),y=0))
   }
   
   plot <- ggplot(density, aes(x=x, y=y)) +
@@ -116,6 +115,15 @@ for ( pheno in phenos ) {
           plot.subtitle = element_text(hjust = 0.5),
           plot.margin = margin(10, 30, 10, 10))
   
+  if (pointmass) {
+    row = g[g$a==g$b,]
+    if (row$pi>0) {
+      plot = plot + 
+        geom_segment(aes(x=0, y=0, xend=0, yend=row$pi), color='red') +
+        geom_point(aes(x=0, y=row$pi), color='red')
+    }
+  }
+  
   print(plot)
   plots_dir = '/Users/nbaya/Downloads' # paste0(smiles_dir,'/plots')
   plot_fname=sprintf('%s/ashprior.%s.%s.%s%s%s.png',
@@ -126,9 +134,9 @@ for ( pheno in phenos ) {
                      if (block_mhc) '.block_mhc' else '',
                      if (pointmass) '.pointmass' else '')
                      
-  # ggsave(filename = plot_fname,
-  #        plot=plot,
-  #        dpi=300,
-  #        scale=0.8)
-  # plot(density$x, density$y, type="l", lwd=1)
+  ggsave(filename = plot_fname,
+         plot=plot,
+         dpi=300,
+         scale=0.8)
+
 }
