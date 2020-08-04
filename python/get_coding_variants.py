@@ -68,13 +68,13 @@ def main():
     fnames = [
 #            '50_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
     #        '21001_irnt.gwas.imputed_v3.both_sexes.tsv.bgz',
-    #        'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
-    #        'EUR.CD.gwas_info03_filtered.assoc.tsv.gz',
-    #        'EUR.UC.gwas_info03_filtered.assoc.tsv.gz',
-            'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
+            'EUR.IBD.gwas_info03_filtered.assoc.tsv.gz',
+            'EUR.CD.gwas_info03_filtered.assoc.tsv.gz',
+            'EUR.UC.gwas_info03_filtered.assoc.tsv.gz',
+#            'Mahajan.NatGenet2018b.T2Dbmiadj.European.tsv.gz',
     #        'daner_PGC_SCZ43_mds9.tsv.gz',
-    #        'breastcancer.michailidou2017.b37.cleaned.tsv.gz',
-    #        'UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.cleaned.tsv.gz',
+#            'breastcancer.michailidou2017.b37.cleaned.tsv.gz',
+#            'UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.cleaned.tsv.gz',
     #        'AD_sumstats_Jansenetal_2019sept.tsv.gz',
     #        '30780_irnt.gwas.imputed_v3.both_sexes.tsv.bgz', #LDL
 #            '30760_irnt.gwas.imputed_v3.both_sexes.tsv.bgz', # HDL
@@ -91,7 +91,8 @@ def main():
     for fname in fnames:
         annotate_with_coding(ht=ht, fname=fname)
 
-
+if __name__=="__main__":
+    main()
 
 
 
@@ -113,45 +114,7 @@ def main():
 #ss.drop('hl_variant').export(wd+'50_irnt.gwas.imputed_v3.both_sexes.coding.tsv.bgz')
 
 
-## plot Mary Pat's data
 
-mp_path = '/Users/nbaya/Documents/lab/smiles/MPReeveDataVizualiationFinalProject/'
-
-for phen in ['T2D','SCZ','IBD','AD']:
-    df = pd.read_csv(mp_path+f'{phen}_GWASandNaturalSelectionData.csv')
-    df['rbeta'] = np.log10(df.OR)
-    
-    df = df.drop(columns='coding')
-    df = df.rename(columns={'coding_bool':'coding','P':'pval'})
-    
-    df['A1'] = df.A1A2.str.split('/',n=2,expand=True).iloc[:,0]
-    df['A2'] = df.A1A2.str.split('/',n=2,expand=True).iloc[:,1]
-    df[['chr','pos','A1','A2','rsid','risk_allele','RAF','OR','rbeta','FRQ_A_67390',
-        'FRQ_U_94015','INFO','pval','coding']].to_csv(mp_path+f'{phen}_GWASandNaturalSelectionData.tsv',
-        sep='\t',index=False)
-    
-    fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
-    ax.plot(df[~(df.coding_bool==1)].RAF, df[~(df.coding_bool==1)].rbeta,'.',ms=4,c='#1f77b4')
-    ax.plot(df[(df.coding_bool==1)].RAF, df[(df.coding_bool==1)].rbeta,'o',markerfacecolor='none',ms=10,c='#1f77b4')
-    plt.title(f'Disease: {phen}')
-    plt.xlabel('Risk allele frequency')
-    plt.ylabel('Effect size')
-    plt.legend(['non-coding','coding'],loc=9)
-    plt.xlim([-0.01,1.01])
-    plt.tight_layout()
-    plt.savefig(f'/Users/nbaya/Downloads/{phen}.raf_rbeta.png',dpi=300)
-    
-    fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
-    ax.plot(df[~(df.coding_bool==1)].RAF, 2*(df[~(df.coding_bool==1)].RAF)*(1-df[~(df.coding_bool==1)].RAF)*df[~(df.coding_bool==1)].rbeta**2,'.',ms=4,c='#1f77b4')
-    ax.plot(df[(df.coding_bool==1)].RAF, 2*(df[(df.coding_bool==1)].RAF)*(1-df[(df.coding_bool==1)].RAF)*df[(df.coding_bool==1)].rbeta**2,'o',markerfacecolor='none',ms=10,c='#1f77b4')
-    plt.title(f'Disease: {phen}')
-    plt.title(f'Disease: {phen}')
-    plt.xlabel('Risk allele frequency')
-    plt.ylabel('Variance explained')
-    plt.xlim([-0.01,1.01])
-    plt.legend(['non-coding','coding'],loc=9)
-    plt.tight_layout()
-    plt.savefig(f'/Users/nbaya/Downloads/{phen}.raf_varexp.png',dpi=300)
     
     
     

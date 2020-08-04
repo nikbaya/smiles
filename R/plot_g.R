@@ -10,9 +10,9 @@ if (!dir.exists(smiles_dir)) {
 data_dir=paste0(smiles_dir,'/data')
 
 phenos = c(
-  # 'standing_height',
-  # 'bmi',
-  # 't2d_bmiadj',
+  'standing_height',
+  'bmi',
+  't2d_bmiadj',
   'ibd',
   'cd',
   'uc',
@@ -21,7 +21,7 @@ phenos = c(
   'breast_cancer',
   'cad',
   'ldl',
-  # 'hdl'
+  'hdl',
   'wbc_count',
   'rbc_count',
   'urate',
@@ -33,7 +33,7 @@ phenos = c(
 ld_wind_kb = 500
 block_mhc = TRUE
 betahat = 'var_exp' # Which "betahat" is used for ash. options: beta, abs_beta, var_exp (default: beta)
-pointmass=T # whether to include point mass at zero in prior
+pointmass=F # whether to include point mass at zero in prior
 mixcompdist = '+uniform' #"+uniform" # options: normal, +uniform (if using var_exp instead of beta), halfnormal, halfuniform
 stopifnot(!(((betahat=='abs_beta')|(betahat=='var_exp'))&(mixcompdist!='+uniform'))) # assert that mixcompdist must be +uniform if fitting on abs(beta) or variance explained
 

@@ -307,7 +307,7 @@ mi = mi.rename(columns={'bp_hg19':'pos',
 mi = mi[(~mi.chr.isna()) & (abs(mi.chr.astype(float))<np.inf )]
 mi['chr'] = mi.chr.astype(int).astype(str)
 
-mi = mi[['chr', 'pos', 'A1','A2','eaf','beta', 'se','pval', 'n']]
+mi = mi[['chr', 'pos', 'A1','A2','eaf','beta', 'se','pval']]
 mi_tmp = mi.dropna(axis=0)
 print(f'Dropped {mi.shape[0]-mi_tmp.shape[0]} rows for having NA values')
 for col in mi.columns.values:
@@ -315,7 +315,9 @@ for col in mi.columns.values:
 mi = mi_tmp
 mi['chr'] = mi['chr'].astype(int)
 mi['pos'] = mi['pos'].astype(int)
-mi.to_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.tsv.gz',
+#mi.to_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.tsv.gz', # old version
+#          sep='\t', index=False, compression='gzip')
+mi.to_csv(f'{wd_data}/UKBB.GWAS1KG.EXOME.CAD.SOFT.META.PublicRelease.300517.cleaned.tsv.gz',
           sep='\t', index=False, compression='gzip')
 
 
@@ -325,13 +327,15 @@ mi.to_csv(f'{wd_data}/MICAD.EUR.ExA.Consortium.PublicRelease.310517.cleaned.tsv.
 #   76,192 European ancestry cases, 
 #   63,082 European ancestry controls
 
-bc = pd.read_csv(f'{wd_data}/breastcancer.michailidou2017.b37.tsv.gz',
+bc0 = pd.read_csv(f'{wd_data}/breastcancer.michailidou2017.b37.tsv.gz',
                  sep='\t', compression='gzip', low_memory=False)
-bc = bc.rename(columns={'chromosome':'chr','base_pair_location':'pos',
+bc = bc0.rename(columns={'chromosome':'chr','base_pair_location':'pos',
                         'effect_allele_frequency':'eaf', 'p_value':'pval',
-                        'standard_error':'se'})
+                        'standard_error':'se', 'effect_allele':'A1',
+                        'other_allele':'A2'})
+bc = bc[['chr','pos','A1','A2','eaf','beta','se','pval']]
+# NOTE: Decided to not include A1 and A2 in fields to check for NAs because A2 might be blank
 cols_to_filter = ['chr','pos','eaf','beta','se','pval'] #columns which are necessary for downstream analysis and thus must be filtered for NAs
-bc = bc[cols_to_filter]
 bc_tmp = bc.dropna(axis=0, subset=cols_to_filter)
 print(f'Dropped {bc.shape[0]-bc_tmp.shape[0]} rows for having NA values')
 for col in cols_to_filter: 
@@ -1134,3 +1138,45 @@ for version in ['ref_flipped','gwas']:
     plt.xlim([0,1])
     plt.yscale('log')
     plt.savefig(f'/Users/nbaya/Downloads/{disease}.{version}_af.png',dpi=300)
+
+
+
+## plot Mary Pat's data
+
+mp_path = '/Users/nbaya/Documents/lab/smiles/MPReeveDataVizualiationFinalProject/'
+
+for phen in ['T2D','SCZ','IBD','AD']:
+    df = pd.read_csv(mp_path+f'{phen}_GWASandNaturalSelectionData.csv')
+    df['rbeta'] = np.log10(df.OR)
+    
+    df = df.drop(columns='coding')
+    df = df.rename(columns={'coding_bool':'coding','P':'pval'})
+    
+    df['A1'] = df.A1A2.str.split('/',n=2,expand=True).iloc[:,0]
+    df['A2'] = df.A1A2.str.split('/',n=2,expand=True).iloc[:,1]
+    df[['chr','pos','A1','A2','rsid','risk_allele','RAF','OR','rbeta','FRQ_A_67390',
+        'FRQ_U_94015','INFO','pval','coding']].to_csv(mp_path+f'{phen}_GWASandNaturalSelectionData.tsv',
+        sep='\t',index=False)
+    
+    fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
+    ax.plot(df[~(df.coding_bool==1)].RAF, df[~(df.coding_bool==1)].rbeta,'.',ms=4,c='#1f77b4')
+    ax.plot(df[(df.coding_bool==1)].RAF, df[(df.coding_bool==1)].rbeta,'o',markerfacecolor='none',ms=10,c='#1f77b4')
+    plt.title(f'Disease: {phen}')
+    plt.xlabel('Risk allele frequency')
+    plt.ylabel('Effect size')
+    plt.legend(['non-coding','coding'],loc=9)
+    plt.xlim([-0.01,1.01])
+    plt.tight_layout()
+    plt.savefig(f'/Users/nbaya/Downloads/{phen}.raf_rbeta.png',dpi=300)
+    
+    fig,ax=plt.subplots(figsize=(6*1.2,4*1.2))
+    ax.plot(df[~(df.coding_bool==1)].RAF, 2*(df[~(df.coding_bool==1)].RAF)*(1-df[~(df.coding_bool==1)].RAF)*df[~(df.coding_bool==1)].rbeta**2,'.',ms=4,c='#1f77b4')
+    ax.plot(df[(df.coding_bool==1)].RAF, 2*(df[(df.coding_bool==1)].RAF)*(1-df[(df.coding_bool==1)].RAF)*df[(df.coding_bool==1)].rbeta**2,'o',markerfacecolor='none',ms=10,c='#1f77b4')
+    plt.title(f'Disease: {phen}')
+    plt.title(f'Disease: {phen}')
+    plt.xlabel('Risk allele frequency')
+    plt.ylabel('Variance explained')
+    plt.xlim([-0.01,1.01])
+    plt.legend(['non-coding','coding'],loc=9)
+    plt.tight_layout()
+    plt.savefig(f'/Users/nbaya/Downloads/{phen}.raf_varexp.png',dpi=300)
