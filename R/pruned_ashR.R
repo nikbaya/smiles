@@ -34,7 +34,7 @@ ld_wind_kb = 500
 block_mhc = TRUE
 maf=0.01 # set maf=NULL to use data that is not MAF filtered
 
-betahat = 'var_exp' # Which "betahat" is used for ash. options: beta, abs_beta, var_exp, log_var_exp (default: beta)
+betahat = 'log_var_exp' # Which "betahat" is used for ash. options: beta, abs_beta, var_exp, log_var_exp (default: beta)
 pointmass=TRUE # if True, include point mass at zero in prior
 mixcompdist = '+uniform' #"+uniform" # options: normal, +uniform (if using var_exp instead of beta), halfnormal, halfuniform
 stopifnot(!(((betahat=='abs_beta')|(betahat=='var_exp'))&(mixcompdist!='+uniform'))) # assert that mixcompdist must be +uniform if fitting on abs(beta) or variance explained
@@ -59,7 +59,7 @@ main <- function(phen) {
   ld.pruned = read_ss(fname=pruned_fname)
   
   ash_betahat=if (grepl('abs_',betahat)) abs(ld.pruned[,gsub("abs_","",betahat)])  else if (grepl('log_',betahat)) log10(ld.pruned[,betahat]) else ld.pruned[,betahat]
-  ash_sebetahat=if (grepl('beta',betahat)) ld.pruned$se else if (grepl('log_',betahat)) 1/(log(10)*ld.pruned[,paste0(betahat,'_se')]) else ld.pruned[,paste0(betahat,'_se')]
+  ash_sebetahat=if (grepl('beta',betahat)) ld.pruned$se else if (grepl('log_',betahat)) ld.pruned[,paste0(betahat,'_se')]/(log(10)*ld.pruned[,betahat]) else ld.pruned[,paste0(betahat,'_se')]
   
   ld.pruned.ash <- ash.workhorse(ash_betahat, ash_sebetahat, 
                        mixcompdist = mixcompdist,

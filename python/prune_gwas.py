@@ -221,7 +221,7 @@ def main(phen, maf):
         ss2[['chr','pos','A1','A2','beta','se', 'var_exp','var_exp_se']].to_csv(f'{smiles_dir}/data/{unpruned_fname}',compression='gzip',sep='\t', index=False)
 
 
-    if phen=='Breast cancer':
+    if phen=='breast_cancer':
         pval_threshold = 1e-5
         snp_ct_before = ss2.shape[0]
         ss2 = ss2[ss2.pval<=pval_threshold]

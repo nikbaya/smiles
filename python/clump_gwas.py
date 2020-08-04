@@ -176,7 +176,7 @@ def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash, block_mhc, mixcompdist,
         snp_ct_after = ss0.shape[0]
         print(f'Low-confidence SNPs removed: {snp_ct_before-snp_ct_after}')
               
-    if phen=='Breast cancer':
+    if phen=='breast_cancer':
         pval_threshold = 1e-5
         snp_ct_before = ss0.shape[0]
         ss0 = ss0[ss0.pval<=pval_threshold]
@@ -387,7 +387,7 @@ def plot_varexp_original_vs_ash(phen, ss, block_mhc, mixcompdist, betahat, point
     plt.title(f'{phen_fname_dict[phen][1]}{f", pval={pval_threshold}" if pval_threshold not in [None, 1] else ""}'+
               f'{" (var-exp thresh.)" if filter_by_varexp&(pval_threshold not in [None, 1]) else ""}'+
               f'{", clumped" if clumped else ""}'+
-              f'{", maf>{maf}" if maf!=None else ""}'+
+              f'{f", maf>{maf}" if maf!=None else ""}'+
               f', color={color_by}'+
               f'\n{mixcompdist}, betahat={betahat}, pointmass={pointmass}, block_mhc={block_mhc} ({ss.shape[0]} SNPs)')
     plt.tight_layout()
