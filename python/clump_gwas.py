@@ -194,11 +194,11 @@ def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash, block_mhc, mixcompdist,
         ss0['var_exp'] = 2*ss0.raf*(1-ss0.raf)*ss0.rbeta**2
         
     if use_ash:
-        ash_fname = f'{smiles_dir}/data/ash'
-        ash_fname += f'.{phen}.{mixcompdist}.{"block_mhc." if block_mhc else ""}'
+        ash_fname = f'ash.{phen}.{mixcompdist}.{"block_mhc." if block_mhc else ""}'
         ash_fname += f'{f"{betahat}." if betahat!= "beta" else ""}{"" if pointmass else "no_pointmass."}'
         ash_fname += f'{f"maf_{maf}." if maf!=None else ""}tsv.gz'
-        ash = pd.read_csv(ash_fname, sep='\t',compression='gzip')
+        print(f'Using ash results: {ash_fname}')
+        ash = pd.read_csv(f'{smiles_dir}/data/{ash_fname}', sep='\t',compression='gzip')
         if ('A1' in ss0.columns.values)&('A2' in ss0.columns.values):
             ss0 = ss0.merge(ash, on=['chr','pos', 'A1', 'A2'])
         else:
@@ -565,7 +565,7 @@ def main(phen):
                                                 clumped=True, 
                                                 pval_threshold=pval_threshold, 
                                                 logscale=True, 
-                                                color_by='pval')
+                                                color_by=color_by)
                 
                 plot_smiles_original_vs_ash(phen=phen, 
                                             ss=ss_clumped, 

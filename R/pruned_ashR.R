@@ -58,8 +58,8 @@ main <- function(phen) {
                          if (is.null(maf)) '' else sprintf('.maf_%s',maf))
   ld.pruned = read_ss(fname=pruned_fname)
   
-  ash_betahat=if (grepl('abs_',betahat)) abs(ld.pruned[,gsub("abs_","",betahat)])  else if (grepl('log_',betahat)) log10(ld.pruned[,betahat]) else ld.pruned[,betahat]
-  ash_sebetahat=if (grepl('beta',betahat)) ld.pruned$se else if (grepl('log_',betahat)) ld.pruned[,paste0(betahat,'_se')]/(log(10)*ld.pruned[,betahat]) else ld.pruned[,paste0(betahat,'_se')]
+  ash_betahat=if (grepl('abs_',betahat)) abs(ld.pruned[,gsub("abs_","",betahat)])  else if (grepl('log_',betahat)) log10(ld.pruned[,gsub("log_","",betahat)]) else ld.pruned[,betahat]
+  ash_sebetahat=if (grepl('beta',betahat)) ld.pruned$se else if (grepl('log_',betahat)) ld.pruned[,paste0(gsub("log_","",betahat),'_se')]/(log(10)*ld.pruned[,gsub("log_","",betahat)]) else ld.pruned[,paste0(betahat,'_se')]
   
   ld.pruned.ash <- ash.workhorse(ash_betahat, ash_sebetahat, 
                        mixcompdist = mixcompdist,
