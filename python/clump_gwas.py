@@ -262,10 +262,10 @@ def get_blocked_mhc(ss):
     r'''
     Removes all but the most significant variant in the MHC region
     '''
-    genes = pd.read_csv(f'{smiles_dir}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
-    mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
-    start = min(mhc_region.start)
-    stop = max(mhc_region.stop)
+#    genes = pd.read_csv(f'{smiles_dir}/data/cytoBand.txt',delim_whitespace=True,header=None,names=['chr','start','stop','region','gene'])
+#    mhc_region = genes[(genes.chr=='chr6')&(genes.region.str.contains('p21.'))]
+    start = 30400000 #min(mhc_region.start)
+    stop = 46200000 #max(mhc_region.stop)
     mhc = ss[(ss.chr==6)&(ss.pos>=start)&(ss.pos<=stop)]
     if len(mhc)>0: #if there are variants in MHC
         print(f'\nNumber of variants in MHC: {len(mhc)}')
