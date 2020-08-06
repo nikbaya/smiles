@@ -35,8 +35,8 @@ block_mhc = TRUE
 maf=0.01 # set maf=NULL to use data that is not MAF filtered
 
 betahat = 'log_var_exp' # Which "betahat" is used for ash. options: beta, abs_beta, var_exp, log_var_exp (default: beta)
-pointmass=TRUE # if True, include point mass at zero in prior
-mixcompdist = '+uniform' #"+uniform" # options: normal, +uniform (if using var_exp instead of beta), halfnormal, halfuniform
+pointmass=FALSE # if True, include point mass at zero in prior. (set to FALSE if using betahat=log_var_exp)
+mixcompdist = 'halfuniform' #"+uniform" # options: normal, +uniform (if using var_exp instead of beta), halfnormal, halfuniform
 stopifnot(!(((betahat=='abs_beta')|(betahat=='var_exp'))&(mixcompdist!='+uniform'))) # assert that mixcompdist must be +uniform if fitting on abs(beta) or variance explained
 
 read_ss <- function(fname) {
@@ -81,8 +81,8 @@ main <- function(phen) {
   for (chrom in seq(1,22)) {
     df = genome.wide[which(genome.wide$chr==chrom),]
     
-    ash_betahat=if (grepl('abs_',betahat)) abs(df[,gsub("abs_","",betahat)])  else df[,betahat]
-    ash_sebetahat=if (grepl('beta',betahat)) df$se else df[,paste0(betahat,'_se')]
+    ash_betahat=if (grepl('abs_',betahat)) abs(df[,gsub("abs_","",betahat)])  else if (grepl('log_',betahat)) log10(df[,gsub("log_","",betahat)]) else df[,betahat]
+    ash_sebetahat=if (grepl('beta',betahat)) df$se else if (grepl('log_',betahat)) df[,paste0(gsub("log_","",betahat),'_se')]/(log(10)*df[,gsub("log_","",betahat)]) else df[,paste0(betahat,'_se')]
     
     df.ash <- ash(ash_betahat, ash_sebetahat, 
                   g=ld.pruned.g, 
