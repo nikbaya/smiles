@@ -105,6 +105,7 @@ def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash, block_mhc, mixcompdist,
     r'''
     Pre-clumping QC
     '''
+    assert betahat in {'beta','abs_beta','var_exp','log_var_exp'}
     assert 'se' in ss0.columns.values
     if 'chr' not in ss0.columns.values:
         ss0['chr'] = ss0.variant.str.split(':',n=1,expand=True).iloc[:,0]
@@ -205,10 +206,12 @@ def pre_clump_qc(ss0, phen, filter_by_varexp, use_ash, block_mhc, mixcompdist,
             print(f'WARNING: Joining ash results without allele columns')
             ss0 = ss0.merge(ash, on=['chr','pos'])
         print(f'SNPs after merge with ash results: {ss0.shape[0]}')
-        if betahat=='var_exp':
-            ss0['var_exp_ash'] = ss0.PosteriorMean
-        else:
+        if betahat in {'beta','abs_beta'}:
             ss0['var_exp_ash'] = 2*ss0.raf*(1-ss0.raf)*ss0.PosteriorMean**2
+        elif betahat=='var_exp':
+            ss0['var_exp_ash'] = ss0.PosteriorMean
+        elif betahat=='log_var_exp':
+            ss0['var_exp_ash'] = 10**(ss0.PosteriorMean)        
     
     return ss0
 
@@ -342,11 +345,6 @@ def plot_varexp_original_vs_ash(phen, ss, block_mhc, mixcompdist, betahat, point
                                 logscale=True, color_by='pval'):
     assert all([f in ss.columns.values for f in ['var_exp','var_exp_ash']]), "fields missing from sumstats file"
     print(f'Number of variants: {ss.shape[0]}')
-#    if logscale:
-#        ss = ss[ss.var_exp != 0]
-#        ss = ss[ss.var_exp_ash != 0]
-#        print(f'Number of variants with var_exp or var_exp_ash != 0: {ss.shape[0]}')
-#    plt.plot(ss['var_exp'],ss['var_exp_ash'],'.',alpha=0.05)
     if color_by=='pval':
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         pval_color_mapping = lambda x: 'lightgrey' if x.pval > 1e-5 else (
@@ -357,6 +355,7 @@ def plot_varexp_original_vs_ash(phen, ss, block_mhc, mixcompdist, betahat, point
     elif color_by=='maf' and not 'maf' in ss.columns:
         calc_maf = lambda x: min(x.eaf, 1-x.eaf)
         ss['maf'] = ss.apply(calc_maf, axis=1)
+        
     plt.figure(figsize=(6*1.5,4*1.5))
     plt.scatter(ss['var_exp'],ss['var_exp_ash'], 
                 c=ss[color_by] if color_by!='pval' else ss.apply(pval_color_mapping, axis=1), 
